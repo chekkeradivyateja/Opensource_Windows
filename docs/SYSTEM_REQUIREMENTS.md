@@ -4,9 +4,9 @@
 
 | | Minimum | Recommended | Why |
 |---|---|---|---|
-| Operating system | Windows 10 or 11, **64-bit (x86-64)** | Windows 11 | the tools are 64-bit Windows programs |
-| RAM | **8 GB** | 16 GB | a UVM build needs about **3.4–3.6 GB** at its peak |
-| Free disk | **3 GB** + projects | 10 GB | see the table below |
+| Operating system | Windows 10 (1803 or newer) or 11, **64-bit (x86-64)** | Windows 11 | the tools are 64-bit Windows programs |
+| RAM | **8 GB** | 16 GB | a UVM build needs about **3.2–3.6 GB** at its peak |
+| Free disk | **5 GB** (the installer itself needs 3 GB) | 15 GB | tools 1.3 GB + download 0.42 GB + projects; see the README, section 1.3 |
 | CPU | any 64-bit Intel or AMD | 4+ cores | UVM builds use 1 core (`JOBS=1`) to keep RAM low |
 | Admin rights | not needed | | everything runs from one folder |
 | Internet | once, to download | | works offline afterwards |
@@ -25,12 +25,17 @@ To check your PC: press **Win + Pause** (or Settings → System → About) and l
 | PC | Windows 11 Pro (build 26200), Intel Core 3 100U (6 cores), **7.7 GB RAM** |
 | Release ZIP | see the Releases page |
 | Unzipped tools | about **1.3 GB** (about 30,000 files) |
-| Design flow (sim, lint, synth, schematic, FSM, report) | about **20 s** for the example |
-| SV example: build + 2 tests | about **30 s** |
-| UVM example: first build | **6–8 min**, peak RAM **3.4–3.6 GB** |
-| UVM example: more tests with the same build | a few seconds each |
-| Disk used by a UVM project after a build | about **0.9 GB** (`make clean` frees it) |
-| Disk used by a design or SV project | a few MB |
+| Design flow: each step (sim, lint, synth, schematic, FSM) | 1–3 s, peak RAM under 30 MB |
+| Design flow: `make report` (all steps) | about 5 s |
+| SV example: first build + test | about **20 s**, peak RAM **584 MB** |
+| SV example: more tests with the same build | 3–5 s |
+| UVM example: first build | **4–8 min** (228 s from `D:\`, up to 7.7 min under `C:\Users\...`), peak RAM **3.2–3.6 GB** |
+| UVM example: more tests with the same build | about 3 s each |
+| Disk after the full flow: design / SV / UVM project | about **0.2 MB** / **3.5 MB** / **0.9 GB** (`make clean` takes each back to its sources) |
+| Example waveform | `dump.vcd`: 77 KB for about 1,000 cycles of a small FSM; it grows with the number of signals and the simulation length |
+
+The full per-step table, the disk plan for a course, and the list of files you write and the flow creates are in the
+[README](../README.md#1-system-requirements), section 1.
 
 UVM builds were about 30% slower from a folder under `C:\Users\...` than from `D:\` on the test PC.
 Antivirus scanning is a likely reason but this was not checked.

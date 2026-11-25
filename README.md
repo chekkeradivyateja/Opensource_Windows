@@ -23,18 +23,96 @@ There are three ways to work, and you can mix them freely:
 
 ---
 
-## 1. What your PC needs
+## 1. System requirements
 
-| | Minimum | Recommended |
+All numbers were **measured** on the test PC: Windows 11, Intel Core 3 100U (6 cores), **7.7 GB RAM**.
+On other PCs they will differ. Slower disks and antivirus scanning make builds slower.
+
+### 1.1 Your PC
+
+| | Minimum | Recommended | Why |
+|---|---|---|---|
+| Windows | 10 (version 1803 or newer) or 11, **64-bit** on Intel/AMD | Windows 11 | the tools are 64-bit Windows programs; ARM laptops are not supported |
+| RAM | **8 GB** | **16 GB** | a UVM build needs about **3.2–3.6 GB** at its peak; design and SV flows need less than 1 GB |
+| Free disk | **5 GB** (the installer itself needs 3 GB) | **15 GB** | tools 1.3 GB + download 0.42 GB + your projects (see 1.3) |
+| CPU | any 64-bit Intel/AMD | 4+ cores | builds use one core (`JOBS=1`) to save RAM; only a 6-core CPU was tested |
+| Screen | 1366 × 768 | 1920 × 1080 | the OSS Flow window is about 980 × 760 |
+| Admin rights | **not needed** | | everything stays in one folder and your user folder |
+| Internet | once, for the download | | offline install from USB also works |
+
+Check your PC: Settings → System → About. *System type* must say **64-bit operating system, x64-based processor**.
+Or run `install_oss_flow.cmd --check`, which tests everything and changes nothing.
+
+### 1.2 RAM and time per step
+
+| Flow | Step | Time | Peak RAM (largest tool) |
+|---|---|---|---|
+| **Design** (Verilog) | `make sim` (Icarus) | 2 s | 7 MB |
+| | `make lint` (Verilator) | 1 s | 16 MB |
+| | `make synth` (Yosys) | 3 s | 16 MB |
+| | `make schematic` / `make fsm` (Graphviz) | 2 s each | 27 MB |
+| | `make report` (all steps) | 5 s | 16 MB |
+| **SystemVerilog** | `make lint` | 2 s | 16 MB |
+| | first `make run` (builds the simulator) | **20 s** | **584 MB** |
+| | more tests with the same build (`make regress`) | 3–5 s | small |
+| | switching waveform format VCD ↔ FST (rebuild) | 18 s | 582 MB |
+| | `make covhtml`, `make synth` | 1–3 s | 16 MB |
+| **UVM** | `make lint_tb` | 7 s | 636 MB |
+| | first `make run` / `make regress` (**builds UVM + your testbench**) | **4–8 min** | **3.2–3.6 GB** |
+| | more tests with the same build | about 3 s each | small |
+| | `make covhtml` | 3 s | 16 MB |
+
+Any change to a `.v` or `.sv` file means a new build in the SV and UVM flows. In the design flow, each step is so
+quick that this doesn't matter.
+
+### 1.3 Disk space for your projects
+
+Plan for these sizes.
+
+| Project type (examples) | Your source files | After running the full flow | After `make clean` |
+|---|---|---|---|
+| Design project (`design_seq_det`) | a few KB | **about 0.2 MB** (sim output, `dump.vcd`, reports, schematics) | sources only |
+| SV project (`sv_project`) | a few KB | **about 3.5 MB** (mostly the `obj_dir` build folder) | sources only |
+| UVM project (`uvm_project`) | about 10 KB | **about 0.9 GB** (the `obj_dir` build folder holds the compiled UVM library) | sources only |
+
+**Waveforms grow with your design and the simulation length.** The example `dump.vcd` is 77 KB for about 1,000
+clock cycles of a tiny design. A design with 100× more signals running 100× longer can easily produce a VCD file of
+**several hundred MB**. To keep waveforms small:
+- use `WAVE_FMT=fst` in the SV/UVM flows (FST is a compressed format and smaller than VCD)
+- dump only the signals you need
+- shorten long simulations while debugging
+
+**Example plan for a course** (one trainee):
+
+| Work | Count × size | Disk |
 |---|---|---|
-| Windows | 10 or 11, **64-bit** (x86-64) | Windows 11 |
-| RAM | **8 GB** (all tests, including UVM, passed on a 7.7 GB PC) | 16 GB |
-| Free disk | **3 GB** (download + unzipped tools) + space for projects (a UVM project build uses about **0.9 GB**) | 10 GB |
-| CPU | any 64-bit Intel/AMD | 4 or more cores |
-| Admin rights | **not needed** | |
-| Internet | only once, to download | |
+| Tools + kept download | | about 1.7 GB |
+| Design labs | 30 × 0.2 MB | about 6 MB |
+| SV labs | 15 × 3.5 MB | about 50 MB |
+| UVM labs, **if every build is kept** | 5 × 0.9 GB | about 4.5 GB |
+| UVM labs, **with `make clean`** after finishing each one | | under 1 MB |
+| Waveforms | depends on your simulations | 0.1–2 GB |
+| **Total** | | **about 3–9 GB**, so keep **15 GB free** |
 
-Full details: [docs/SYSTEM_REQUIREMENTS.md](docs/SYSTEM_REQUIREMENTS.md).
+Free space with `make clean` (or the launcher's **Clean project** button) in projects you have finished. It deletes
+only generated files; your `rtl/`, `tb/` and `sva/` files stay. You may also delete the downloaded ZIP in
+`%TEMP%\oss_flow_download` (0.42 GB) after installing.
+
+### 1.4 What files you add, and what the flow creates
+
+Keep each project in its own folder under `C:\Users\<you>\vlsi_work\`. Use names **without spaces**. Don't put
+projects in OneDrive or on a network drive. **The file name must equal the module name**: `alu.v` holds `module alu`.
+
+| | You write (keep these, back them up) | The flow creates (safe to delete with `make clean`) |
+|---|---|---|
+| **Design** project | `rtl/*.v` (design), `tb/*_tb.v` (testbench), `simdir/Makefile` (copied from `templates/design`) | `sim.out`, `dump.vcd` (waveform), `sim_report.txt`, `lint_report.txt`, `synth_report.txt`, `synth_stat.txt`, `synth_out.v` (netlist), `*_rtl.svg` / `*_synth.svg` (schematics), `*_fsm.svg` (FSM diagram), `flow_report.txt` (one report) |
+| **SV** project | `rtl/*.v` or `*.sv`, `sva/*.sv` (assertions), `tb/*_pkg.sv` + `tb/tb_top.sv`, `sim/Makefile` (from `templates/sv`) | `obj_dir/` (build), `logs/<test>.log`, `cov/*.dat`, `cov_report.txt`, `cov_annot/`, `cov_covergroup/`, `cov_html/` (coverage), `waves_<test>.vcd/.fst`, `synth.log` |
+| **UVM** project | `rtl/*`, `tb/*_if.sv`, `tb/*_pkg.sv` (UVM classes), `tb/tb_top.sv`, `sim/Makefile` (from `templates/uvm`) | the same as SV, plus a much bigger `obj_dir/` (about 0.9 GB) |
+
+The OSS Flow window also writes `code_coverage.html` and `functional_coverage.html` (coverage reports) into the
+`sim/` folder. They're removed by **Clean project**.
+
+More details: [docs/SYSTEM_REQUIREMENTS.md](docs/SYSTEM_REQUIREMENTS.md).
 
 ## 2. Install (about 10 minutes)
 
