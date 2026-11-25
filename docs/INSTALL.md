@@ -3,7 +3,47 @@
 The installation takes about **10 minutes**. No admin rights are needed, and nothing is changed in Windows settings.
 You need about **3 GB** of free disk space.
 
-## 1. Download
+There are two ways to install. **Way A (one-click installer)** is recommended. **Way B (manual)** does the same
+steps by hand.
+
+## Way A: one-click installer (recommended)
+
+1. Download **`install_oss_flow.cmd`** from the
+   [Releases](https://github.com/chekkeradivyateja/Opensource_Windows/releases) page, or from the repository:
+   open the file, then click **Download raw file**.
+2. **Double-click** `install_oss_flow.cmd`.
+   - If Windows shows **"Windows protected your PC"**, click **More info → Run anyway**. The file is a plain text
+     script; you can open it in Notepad and read it first.
+3. A window shows each step:
+   1. checks your PC
+   2. downloads the tools (about 420 MB) and **checks the SHA-256**
+   3. unpacks them to `C:\oss_flow_bundle`
+   4. creates the shortcuts **OSS Flow** and **Verification Terminal** on the desktop and in the Start menu
+   5. runs a **self-test**
+
+   It ends with `DONE: OSS Flow v0.1.0 is installed and working.`
+4. Press a key to close the window, then start **OSS Flow** from the desktop.
+
+**Options.** Open a Command Prompt in the folder that has the installer, then run one of these:
+
+| Command | What it does |
+|---|---|
+| `install_oss_flow.cmd --check` | checks your PC only and changes nothing |
+| `install_oss_flow.cmd --zip D:\oss_flow_windows_v0.1.0.zip` | **offline** install from a ZIP on a USB stick or shared drive |
+| `install_oss_flow.cmd --dir D:\oss_flow_bundle` | installs to another folder (no spaces) |
+| `install_oss_flow.cmd --uninstall` | removes the shortcuts and moves the tools folder to a backup name |
+
+**What the installer never does:**
+- It never deletes anything. An older version is **moved** to `..._backup_<date>`, but only after you type `yes`.
+- It never touches your projects.
+- It never changes Windows settings, never needs admin rights, and never installs a service.
+- It downloads and checks everything **before** changing anything. If a step fails, the old version is restored.
+
+If the installer reports a FAIL, it says what to do. The full log is in your Temp folder (the path is shown at the top).
+
+## Way B: manual installation
+
+### 1. Download
 
 1. Go to <https://github.com/chekkeradivyateja/Opensource_Windows/releases>.
 2. Under the newest release (**v0.1.0**), click these two files to download them:
@@ -14,7 +54,7 @@ You need about **3 GB** of free disk space.
 
 **No internet on the lab PC?** Copy both files from a USB stick or a shared drive instead. Everything else is the same.
 
-## 2. Check the download (do not skip)
+### 2. Check the download (do not skip)
 
 This makes sure the file is complete and unchanged.
 
@@ -29,7 +69,7 @@ This makes sure the file is complete and unchanged.
    - **Same:** continue.
    - **Different:** delete the zip and download it again. If it is still different, report it (see README).
 
-## 3. Unzip
+### 3. Unzip
 
 1. Right-click `oss_flow_windows_v0.1.0.zip` and choose **Extract All...**.
 2. As the destination, type `C:\` and click **Extract**. This takes a few minutes (about 30,000 files).
@@ -41,13 +81,13 @@ Rules for the location:
 - If you cannot write to `C:\`, use a folder in your user folder, for example
   `C:\Users\<you>\oss_flow_bundle`, as long as your user name has no spaces.
 
-## 4. Shortcuts (optional)
+### 4. Shortcuts (optional)
 
 In `C:\oss_flow_bundle`, right-click each file and choose **Send to → Desktop (create shortcut)**:
 - `OSS_Flow.cmd`: the OSS Flow window (buttons)
 - `Verification_Terminal.cmd`: the terminal (commands)
 
-## 5. First run check
+## 5. First run check (both ways)
 
 **Terminal check (2 minutes)**
 
@@ -93,13 +133,20 @@ The result should be `alu_smoke_test PASS`, `alu_random_test PASS` and `REGRESSI
 
 ## 7. Update to a new version
 
-Download the new ZIP. Rename the old folder (for example to `oss_flow_bundle_old`), then unzip the new one.
+- **Installer:** run the new `install_oss_flow.cmd`. It finds the old version, asks you, moves the old version to a
+  backup, and installs the new one.
+- **Manual:** rename the old folder (for example to `oss_flow_bundle_old`), then unzip the new ZIP.
+
 Your projects in `vlsi_work` are not affected. Delete the old folder once the new one works.
 
 ## 8. Uninstall
 
-Delete the folder `C:\oss_flow_bundle` and your desktop shortcuts. Your projects in `C:\Users\<you>\vlsi_work`
-stay, so delete them too if you no longer need them. Nothing else was installed.
+- **Installer:** run `install_oss_flow.cmd --uninstall` and type `yes`. It removes the shortcuts and moves the
+  tools folder to `C:\oss_flow_bundle_removed_<date>`. Delete that folder yourself to free about 1.3 GB.
+- **Manual:** delete the folder `C:\oss_flow_bundle` and your shortcuts.
+
+Your projects in `C:\Users\<you>\vlsi_work` stay either way; delete them too if you no longer need them. Nothing else
+was installed.
 
 ## Problems?
 

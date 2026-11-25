@@ -38,6 +38,19 @@ Full details: [docs/SYSTEM_REQUIREMENTS.md](docs/SYSTEM_REQUIREMENTS.md).
 
 ## 2. Install (about 10 minutes)
 
+**One click (recommended):** download **`install_oss_flow.cmd`** from the
+[Releases](https://github.com/chekkeradivyateja/Opensource_Windows/releases) page and double-click it. It does the
+following:
+1. checks your PC
+2. downloads and verifies the tools
+3. installs them to `C:\oss_flow_bundle`
+4. creates desktop shortcuts
+5. runs a self-test
+
+It needs no admin rights and deletes nothing. Options include `--check`, offline `--zip FILE` and `--uninstall`;
+see [docs/INSTALL.md](docs/INSTALL.md).
+
+**Manual:**
 1. Open the **[Releases](https://github.com/chekkeradivyateja/Opensource_Windows/releases)** page and download
    `oss_flow_windows_v0.1.0.zip` and `oss_flow_windows_v0.1.0.zip.sha256`.
 2. **Check the download.** In PowerShell, in your Downloads folder:
@@ -96,6 +109,7 @@ Sources, licences and checksums: [docs/TOOLS.md](docs/TOOLS.md).
 
 ```
 README.md                  this page
+install_oss_flow.cmd       one-click installer (check, download + SHA-256, install, shortcuts, self-test)
 OSS_Flow.cmd               starts the OSS Flow window
 Verification_Terminal.cmd  starts the terminal with all tools
 launcher/oss_flow.py       the OSS Flow window (Python, standard library only)

@@ -21,6 +21,31 @@ Only real results are listed here. Tested on **one PC**:
 | Trainee guide | every command run exactly as written | PASS |
 | Release ZIP v0.1.0 | SHA-256 checked, unzipped into a new folder `C:\oss_ziptest`; INSTALL.md first-run commands (design `make report`, SV `make regress` + `covhtml`) and launcher self-test with UVM (49/49) all from the unzipped copy | PASS |
 
+## One-click installer (`install_oss_flow.cmd`)
+
+All cases below were run on the test PC, with test folders under `C:\oss_inst_test`.
+
+| Case | Expected | Result |
+|---|---|---|
+| `--check` | all checks shown, nothing changed | PASS (8/8 checks) |
+| Wrong processor (ARM64), old Windows (build 16299), low disk (1 GB), no internet without `--zip`, path with a space, existing folder that is not OSS Flow, missing local ZIP | stop with a clear FAIL, nothing changed | PASS (7/7; nothing created) |
+| Clean offline install (`--zip`) | checks, SHA-256, unpack, self-test | PASS: self-test 44/44, 201 s |
+| Second run, same version | "already installed, nothing to do" | PASS: 3 s, file count unchanged (34,682) |
+| Older version present, user answers No | nothing changed | PASS |
+| Wrong checksum | stop **before** moving the old version | PASS |
+| Unpack fails after the old version was moved | old version restored automatically | PASS |
+| Older version present, user answers yes | old version moved to `_backup_<date>`, new version installed | PASS: self-test 44/44 |
+| Shortcuts | desktop + Start menu: OSS Flow, Verification Terminal | PASS (target and start folder checked) |
+| `--uninstall`: No / yes / again | nothing changed / shortcuts removed + folder moved to `_removed_<date>` / "nothing found" | PASS |
+| Online install (download from the GitHub release) | download, SHA-256 matches, install, self-test | PASS: 442,618,481 bytes, self-test 44/44, 277 s |
+| Second online install | reuse the downloaded ZIP (no new download) | PASS. The run took 21 min, compared with under 5 min before; the cause was not found (other load on the PC is possible) |
+
+Not tested for the installer:
+- **double-clicking** the downloaded `.cmd` in a browser download (SmartScreen prompt, the pause at the end)
+- a PC without the developer tools
+- a managed PC (Device Guard)
+- a non-English Windows
+
 ## NOT tested yet
 
 - A PC that **never had MSYS2** installed. This was the closest possible test: all other tools were removed from PATH.

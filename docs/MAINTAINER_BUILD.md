@@ -82,3 +82,19 @@ tar.exe -a -c -f oss_flow_windows_vX.Y.Z.zip --exclude "oss_flow_bundle/tmp/gvim
 ```
 Upload the ZIP and its `.sha256` file to a GitHub **Release**. They must never go into git: GitHub refuses
 files over 100 MB in a repository, while Release files may be up to 2 GB.
+
+## 7. Update the installer for a new release
+
+At the top of `install_oss_flow.cmd`, change only these settings: `VERSION`, `ZIP_NAME`, `DOWNLOAD_BASE`
+(the download address, which is the one setting to change if the repository moves) and `ZIP_SHA256`.
+Keep CRLF line endings. Attach `install_oss_flow.cmd` to the Release as well.
+
+Run the installer tests before publishing. They use environment variables that trainees never need:
+- `OSSFLOW_NO_PAUSE=1`: don't wait for a key at the end (for scripted tests)
+- `OSSFLOW_NO_SHORTCUTS=1`: skip creating shortcuts
+- `OSSFLOW_TEST_ARCH`, `OSSFLOW_TEST_BUILD`, `OSSFLOW_TEST_FREE_GB`, `OSSFLOW_TEST_OFFLINE`: fake a wrong
+  processor, old Windows, low disk, or no internet
+- `OSSFLOW_TEST_SHA`: a wrong expected checksum
+- `OSSFLOW_TEST_BREAK_EXTRACT`: a failed unpack (checks the rollback)
+
+The test cases and their results are listed in [TESTED.md](TESTED.md).
