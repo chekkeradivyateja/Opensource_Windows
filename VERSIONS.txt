@@ -1,0 +1,31 @@
+Open-source Verilog design + verification flow for Windows (64-bit)
+Bundle build: test build 1, 25 Nov 2026 (NOT a release)
+
+Tool                Version                      Source
+------------------  ---------------------------  ------------------------------------------------------------
+Verilator           5.054                        MSYS2 mingw-w64-ucrt-x86_64-verilator 5.054-1
+GCC / g++           16.2.0                       MSYS2 mingw-w64-ucrt-x86_64-gcc 16.2.0-7 (C++ built with -O1)
+GNU make            4.4.1                        MSYS2 make
+perl                5.44.0                       MSYS2 perl
+Python              3.14.10                      MSYS2 mingw-w64-ucrt-x86_64-python
+z3                  4.16.0                       MSYS2 (constrained random)
+lcov / genhtml      1.16 (1~1.16-2)              MSYS2 lcov (+ perl-json 4.11-2, perl-perlio-gzip 0.20-9)
+lz4                 1.11.1-2                     MSYS2 mingw-w64-ucrt-x86_64-lz4 (needed for FST)
+Icarus Verilog      13.0                         MSYS2 mingw-w64-ucrt-x86_64-iverilog 1~13.0-2
+Yosys               0.66                         MSYS2 mingw-w64-ucrt-x86_64-yosys 0.66-1
+Graphviz            16.1.2                       graphviz.org Graphviz-16.1.2-win64.zip
+                                                 sha256 0924501672e796e05d3b6dd402d518e352ed28e9329dc668f40ce52357aa9f4b
+Surfer              0.7.0                        gitlab.com/surfer-project surfer_win_v0.7.0.zip
+                                                 sha256 4fbb0ad93e1aa958f6944c036a8d01b36b267a96e7f904683317235cd041fc24
+UVM                 1800.2-2020 3.1              github.com/verilator/uvm @ 656f20d087370a7c742e00188d20bbf30fa95339
+                                                 archive sha256 fd28a1b0a789376dd83c3903f4f06cc38d4e5969f64062bea36da8e88c0c07b8
+                                                 patched: uvm_component.svh lines 2608, 2671 (clone -> clone_flag)
+                                                 used with +define+UVM_NO_DPI on Windows
+vim / vi            9.2.1373                     MSYS2 vim 9.2.1373-1 (terminal editor; "vi" starts vim)
+gvim                9.2.1398                     github.com/vim/vim-win32-installer gvim_9.2.1398_x64.zip
+                                                 sha256 0161b9deb47f10c788e9965e1b2ca96604a2b0aed9e68b99c562ba806d8f3566
+                                                 (= GitHub release digest); install.exe/uninstall.exe not shipped
+MSYS2 runtime       (msys-2.0.dll, bash, sed,    MSYS2 base system, trimmed: no pacman, no docs/locales,
+                     grep, coreutils, gawk)      no GHDL/LLVM/Ada, no Python test suite
+
+Licences: see licenses\README.txt (collection NOT complete in this test build).

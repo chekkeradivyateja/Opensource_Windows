@@ -1,0 +1,33 @@
+# Release bundle (goes to GitHub Releases, never into git)
+*.zip
+*.zip.sha256
+oss_flow_bundle/
+
+# Build and run outputs
+obj_dir/
+obj_*/
+logs/
+cov/
+cov_annot/
+cov_covergroup/
+cov_html/
+*.dat
+*.info
+*.vcd
+*.fst
+*.log
+*.out
+*.kiss2
+*.dot
+*.svg
+synth_out.v
+*_report.txt
+cov_report.txt
+cov_summary.txt
+synth_stat.txt
+flow_report.txt
+flow_run.txt
+code_coverage.html
+functional_coverage.html
+uvm_cov_off.vlt
+__pycache__/

@@ -1,0 +1,6 @@
+# Makefiles, sources and scripts must keep LF line endings (CRLF breaks make and bash).
+* text=auto eol=lf
+# Windows start scripts need CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
