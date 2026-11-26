@@ -1,6 +1,6 @@
 # How the release bundle is built (for the trainer/maintainer)
 
-Trainees do **not** need this page. It records how `oss_flow_windows_v0.1.0.zip` was made so it can be
+Trainees do **not** need this page. It records how `oss_flow_windows_v0.2.0.zip` was made so it can be
 rebuilt or updated.
 
 ## 1. Build PC
@@ -75,11 +75,18 @@ LF line endings with real TABs. `.gitattributes` enforces this.
 
 ## 6. Make the ZIP
 
+Zip a clean staging copy, so test files in `tmp\` and the launcher's `__pycache__` are not shipped
+(the `__pycache__` folders of the Python library are kept, because they make start-up faster):
+
 ```powershell
-cd D:\
-tar.exe -a -c -f oss_flow_windows_vX.Y.Z.zip --exclude "oss_flow_bundle/tmp/gvim_not_shipped" oss_flow_bundle
-(Get-FileHash oss_flow_windows_vX.Y.Z.zip -Algorithm SHA256).Hash.ToLower()
+$S = "D:\oss_flow_release\vX.Y.Z\stage\oss_flow_bundle"
+robocopy D:\oss_flow_bundle $S /E /XD D:\oss_flow_bundle\tmp D:\oss_flow_bundle\launcher\__pycache__
+New-Item -ItemType Directory "$S\tmp"
+cd D:\oss_flow_release\vX.Y.Z\stage
+tar.exe -a -c -f ..\oss_flow_windows_vX.Y.Z.zip oss_flow_bundle
+(Get-FileHash ..\oss_flow_windows_vX.Y.Z.zip -Algorithm SHA256).Hash.ToLower()
 ```
+The `.sha256` file holds one line, `<hash>  oss_flow_windows_vX.Y.Z.zip`. Building the ZIP takes about 6 minutes.
 Upload the ZIP and its `.sha256` file to a GitHub **Release**. They must never go into git: GitHub refuses
 files over 100 MB in a repository, while Release files may be up to 2 GB.
 

@@ -16,10 +16,10 @@ rem                     backup name (your projects are never touched)
 rem ==========================================================================
 
 rem ----- release settings: the only lines to change for a new release -----
-set "VERSION=v0.1.0"
-set "ZIP_NAME=oss_flow_windows_v0.1.0.zip"
-set "DOWNLOAD_BASE=https://github.com/chekkeradivyateja/Opensource_Windows/releases/download/v0.1.0"
-set "ZIP_SHA256=e08ca283a190e0c5f4ba6b790f1a48470dd57dadfa1c8360bf82e253e4627040"
+set "VERSION=v0.2.0"
+set "ZIP_NAME=oss_flow_windows_v0.2.0.zip"
+set "DOWNLOAD_BASE=https://github.com/chekkeradivyateja/Opensource_Windows/releases/download/v0.2.0"
+set "ZIP_SHA256=e245caf6f9ae9b49cc04cca982b25198d5fe8b0305904643734a523c6b3eea46"
 set "DEFAULT_DIR=C:\oss_flow_bundle"
 set "MIN_FREE_GB=3"
 set "MIN_BUILD=17134"

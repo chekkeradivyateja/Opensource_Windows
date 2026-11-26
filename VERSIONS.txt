@@ -1,5 +1,5 @@
 Open-source Verilog design + verification flow for Windows (64-bit)
-Bundle build: test build 1, 25 Nov 2026 (NOT a release)
+Bundle build: release v0.2.0, 26 Nov 2026 (pre-release for the trainee pilot)
 
 Tool                Version                      Source
 ------------------  ---------------------------  ------------------------------------------------------------

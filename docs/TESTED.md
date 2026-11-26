@@ -20,6 +20,8 @@ Only real results are listed here. Tested on **one PC**:
 | Viewers | Surfer (VCD, FST), schematics and FSM in the browser, coverage HTML | PASS (checked on screen) |
 | Trainee guide | every command run exactly as written | PASS |
 | Release ZIP v0.1.0 | SHA-256 checked, unzipped into a new folder `C:\oss_ziptest`; INSTALL.md first-run commands (design `make report`, SV `make regress` + `covhtml`) and launcher self-test with UVM (49/49) all from the unzipped copy | PASS |
+| OSS Flow window v0.2.0 | result tabs (Console, Log, Report, Coverage, Schematic, FSM, Waveform); Single file tab: New file, Type, Compile, Simulate for Verilog, SystemVerilog and UVM; Single file and Project results kept apart; Clear, Clean file outputs, make clean; dark/light console; tab heights (no buttons cut off) | PASS (window check script + checked on screen by the trainer) |
+| Release ZIP v0.2.0 | 442,607,824 bytes, SHA-256 `e245caf6…b3eea46`; offline install with `install_oss_flow.cmd --zip` into a new folder: SHA-256 PASS, unpack PASS, launcher self-test 53/53 PASS (174 s in all) | PASS |
 
 ## One-click installer (`install_oss_flow.cmd`)
 
