@@ -65,12 +65,13 @@ WAVEFILE := waves_$(TEST).$(WAVE_FMT)
 RUNARGS  := +TEST=$(TEST) +verilator+seed+$(SEED) +verilator+coverage+file+cov/$(TEST).dat \
             $(if $(filter 1,$(WAVES)),+WAVES +WAVE_FILE=$(WAVEFILE)) $(PLUSARGS)
 
-.PHONY: help check lint build run regress cov covhtml covopen waves gtkwave synth clean
+.PHONY: help check lint build sim run regress cov covhtml covopen waves gtkwave synth clean
 
 help:
 	@echo "Targets:"
 	@echo "  make check                 show tool versions and the source files found"
 	@echo "  make lint                  lint RTL+SVA with -Wall, then the whole testbench"
+	@echo "  make sim TEST=<name>       simulate only: run the last compile again (no compile)"
 	@echo "  make build                 compile (only recompiles when sources change)"
 	@echo "  make run TEST=<name>       run one test -> logs/<name>.log, cov/<name>.dat"
 	@echo "      options: SEED=<n> WAVES=1 WAVE_FMT=vcd|fst PLUSARGS=\"+N=500\""
@@ -101,7 +102,11 @@ build:
 	verilator --binary --assert --coverage $(TRACE) -Wno-fatal -j $(JOBS) $(VINC) $(VDEF) \
 	  --top-module $(TOP) $(WIN_OPT) $(SRCS)
 
-run: build
+# Compile + simulate. 'make build' = compile only, 'make sim' = simulate only (no compile).
+run: build sim
+
+sim:
+	@test -e $(SIM).exe -o -e $(SIM) || { echo "Not compiled yet: run 'make build' (Compile) first"; exit 1; }
 	@mkdir -p logs cov
 	$(SIM) $(RUNARGS) 2>&1 | tee logs/$(TEST).log || true
 	@if grep -q "TEST PASSED" logs/$(TEST).log && ! grep -q "%Error" logs/$(TEST).log; \

@@ -1,0 +1,11 @@
+#!/bin/bash
+# uvmrun - compile and run UVM testbench files (same as: svrun --uvm ...)
+#          like "vcs -sverilog -ntb_opts uvm -R" or "xrun -uvm".
+#
+#   uvmrun tb.sv [more.sv ...] [--compile | --sim | --lint] [--waves] [--cov] [+UVM_TESTNAME=...]
+#
+#   Typical loop:  uvmrun my_if.sv my_pkg.sv top.sv --compile          (once, several minutes)
+#                  uvmrun my_if.sv my_pkg.sv top.sv --sim +UVM_TESTNAME=test_a
+#                  uvmrun my_if.sv my_pkg.sv top.sv --sim +UVM_TESTNAME=test_b +UVM_VERBOSITY=UVM_HIGH
+[ $# -eq 0 ] && { sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+exec svrun --uvm "$@"

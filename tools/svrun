@@ -1,0 +1,100 @@
+#!/bin/bash
+# svrun - compile and run SystemVerilog / SVA / UVM source files directly,
+#         like "vcs -sverilog -R file.sv" or "qrun file.sv". Uses Verilator.
+#
+#   svrun file.sv [more.sv ...] [options] [+plusargs]
+#
+#   Options:
+#     --compile       compile only (like 'vcs file.sv'), no simulation
+#     --sim           simulate only: run the last compile again (like './simv'), no compile
+#     --lint          lint only (verilator --lint-only -Wall), no simulation
+#     --top NAME      top module (default: found automatically = the module nobody instantiates)
+#     --waves         write a waveform (needs $dumpfile/$dumpvars in your code) -> view with: surfer <file>.vcd
+#     --cov           collect code + functional coverage -> coverage report printed after the run
+#     --uvm           add the UVM library (automatic if a file uses uvm_pkg / uvm_macros)
+#     -DNAME[=VAL]    define a macro          -I DIR / +incdir+DIR   include folder
+#     +anything       passed to the simulation (e.g. +UVM_TESTNAME=my_test +SEED=5)
+#
+#   Output: build folder svrun_<first file name>/, log <first file name>.log
+set -o pipefail
+[ $# -eq 0 ] && { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+
+LINT=0; COMPILE=1; SIM=1; WAVES=0; COV=0; UVM=0; TOP=""; FILES=(); VOPTS=(); PLUS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --lint) LINT=1 ;;
+    --compile) SIM=0 ;;
+    --sim) COMPILE=0 ;;
+    --waves) WAVES=1 ;;
+    --cov) COV=1 ;;
+    --uvm) UVM=1 ;;
+    --top) TOP="$2"; shift ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -D*|+define+*) VOPTS+=("$1") ;;
+    -I) VOPTS+=("+incdir+$(cygpath -m "$2")"); shift ;;
+    -I*) VOPTS+=("+incdir+$(cygpath -m "${1#-I}")") ;;
+    +incdir+*) VOPTS+=("+incdir+$(cygpath -m "${1#+incdir+}")") ;;
+    +*) PLUS+=("$1") ;;
+    -*) echo "svrun: unknown option $1 (see: svrun --help)"; exit 2 ;;
+    *) [ -f "$1" ] || { echo "svrun: file not found: $1"; exit 2; }; FILES+=("$1") ;;
+  esac
+  shift
+done
+[ ${#FILES[@]} -eq 0 ] && { echo "svrun: give at least one .sv/.v file"; exit 2; }
+
+NAME=$(basename "${FILES[0]}"); NAME=${NAME%.*}
+grep -qE 'uvm_pkg|uvm_macros|extends[[:space:]]+uvm_' "${FILES[@]}" && UVM=1
+SRC=(); for f in "${FILES[@]}"; do SRC+=("$(cygpath -m "$f")"); done
+for f in "${FILES[@]}"; do d=$(dirname "$f"); VOPTS+=("+incdir+$(cygpath -m "$d")"); done
+if [ $UVM = 1 ]; then
+  [ -n "$UVM_HOME" ] || { echo "svrun: UVM_HOME is not set (use the Verification Terminal)"; exit 2; }
+  U=$(cygpath -m "$UVM_HOME")
+  VOPTS+=(+define+UVM_NO_DPI "+incdir+$U" -Wno-lint -Wno-style)
+  SRC=("$U/uvm_pkg.sv" "${SRC[@]}")
+fi
+[ -n "$TOP" ] && VOPTS+=(--top-module "$TOP")
+
+if [ $LINT = 1 ]; then
+  echo "== svrun --lint: verilator --lint-only -Wall --timing ${VOPTS[*]} ${FILES[*]}"
+  if verilator --lint-only -Wall --timing "${VOPTS[@]}" "${SRC[@]}"; then
+    echo "LINT PASSED: no warnings or errors"; exit 0
+  else
+    echo "LINT FAILED: fix the %Warning/%Error lines above (file:line:column)"; exit 1
+  fi
+fi
+
+OBJ="svrun_$NAME"
+EXTRA=(); [ $WAVES = 1 ] && EXTRA+=(--trace); [ $COV = 1 ] && EXTRA+=(--coverage)
+if [ $COMPILE = 1 ]; then
+  [ $UVM = 1 ] && echo "== svrun: UVM file detected; the first compile takes several minutes."
+  echo "== svrun: compiling ${FILES[*]} -> $OBJ/"
+  if ! verilator --binary --timing --assert -Wno-fatal -j 1 "${EXTRA[@]}" "${VOPTS[@]}" --Mdir "$OBJ"        -o sim -MAKEFLAGS "OPT_FAST=-O1 OPT_SLOW=-O1 OPT_GLOBAL=-O1" "${SRC[@]}" > "$OBJ.build.txt" 2>&1; then
+    grep -E '%Error|%Warning|error:' "$OBJ.build.txt" | head -30
+    echo "COMPILE FAILED (full output: $OBJ.build.txt)"; exit 1
+  fi
+  grep -E '^%Warning' "$OBJ.build.txt" | head -20
+  echo "COMPILE PASSED: $OBJ/sim"
+  [ $SIM = 0 ] && { echo "Next: svrun ${FILES[*]} --sim   (simulate without compiling again)"; exit 0; }
+else
+  [ -e "$OBJ/sim.exe" ] || [ -e "$OBJ/sim" ] || { echo "Not compiled yet: run  svrun ${FILES[*]} --compile  first"; exit 1; }
+fi
+echo "== svrun: simulating (log: $NAME.log)"
+echo "----------------------------------------------------------------------"
+"./$OBJ/sim" "${PLUS[@]}" 2>&1 | tee "$NAME.log"
+RC=$?
+echo "----------------------------------------------------------------------"
+if [ $COV = 1 ] && [ -f coverage.dat ]; then
+  mv -f coverage.dat "$NAME.coverage.dat"
+  verilator_coverage "$NAME.coverage.dat" | sed -n '1,12p'
+  verilator_coverage --annotate "${NAME}_cov_annot" "$NAME.coverage.dat" > /dev/null && echo "Annotated sources: ${NAME}_cov_annot/ (lines marked %00 were never hit)"
+  verilator_coverage --report summary,hier "$NAME.coverage.dat" > "${NAME}_cov_report.txt" 2>/dev/null && echo "Coverage report: ${NAME}_cov_report.txt"
+fi
+if ! grep -vqE '^- (S i m u l a t i o n|Verilator:)|^\s*$' "$NAME.log"; then
+  echo "NOTHING WAS PRINTED: ${FILES[*]} has no testbench code that prints (no initial block with \$display)."
+  echo "  A design file alone (for example a counter) does nothing by itself. Choose your testbench file,"
+  echo "  or list design + testbench together:  svrun counter.sv counter_tb.sv"
+fi
+if grep -qE '%Error|Assertion failed|UVM_FATAL @|UVM_ERROR @' "$NAME.log" || [ $RC -ne 0 ]; then
+  echo "RESULT: FAIL (errors or failed assertions above; exit $RC)"; exit 1
+fi
+echo "RESULT: run finished without errors (exit 0)"

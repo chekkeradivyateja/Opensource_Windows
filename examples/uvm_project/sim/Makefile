@@ -83,13 +83,14 @@ RUNARGS  := +UVM_TESTNAME=$(TEST) +UVM_VERBOSITY=$(VERBOSITY) +UVM_NO_RELNOTES \
 PASS_CHK := grep -q "TEST PASSED" logs/$$t.log && grep -q "UVM_ERROR :    0" logs/$$t.log \
             && grep -q "UVM_FATAL :    0" logs/$$t.log && ! grep -q "%Error" logs/$$t.log
 
-.PHONY: help check lint lint_tb build run regress cov covhtml covopen waves gtkwave synth clean
+.PHONY: help check lint lint_tb build sim run regress cov covhtml covopen waves gtkwave synth clean
 
 help:
 	@echo "Targets:"
 	@echo "  make check                 show tool versions, UVM_HOME and the source files found"
 	@echo "  make lint                  lint RTL+SVA with -Wall (fast)"
 	@echo "  make lint_tb               lint the whole UVM testbench (about 10 s)"
+	@echo "  make sim TEST=<name>       simulate only: run the last compile again (no compile)"
 	@echo "  make build                 compile (first time 3-4 min; only recompiles on changes)"
 	@echo "  make run TEST=<test>       run one UVM test -> logs/<test>.log, cov/<test>.dat"
 	@echo "      options: SEED=<n> WAVES=1 WAVE_FMT=vcd|fst VERBOSITY=UVM_LOW|UVM_MEDIUM|UVM_HIGH"
@@ -132,7 +133,11 @@ build: $(COV_OFF)
 	verilator --binary --assert --coverage $(TRACE) -Wno-fatal -Wno-lint -Wno-style -j $(JOBS) \
 	  $(VINC) $(VDEF) --top-module $(TOP) $(WIN_OPT) $(COV_OFF) $(UVM_SRCS) $(SRCS)
 
-run: build
+# Compile + simulate. 'make build' = compile only, 'make sim' = simulate only (no compile).
+run: build sim
+
+sim:
+	@test -e $(SIM).exe -o -e $(SIM) || { echo "Not compiled yet: run 'make build' (Compile) first"; exit 1; }
 	@mkdir -p logs cov
 	$(SIM) $(RUNARGS) 2>&1 | tee logs/$(TEST).log || true
 	@t=$(TEST); if $(PASS_CHK); \

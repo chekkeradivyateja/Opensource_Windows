@@ -1,0 +1,70 @@
+#!/bin/bash
+# vrun - compile and run Verilog files directly with Icarus Verilog
+#        (like "vcs -R file.v" / "iverilog + vvp" in one step).
+#
+#   vrun file.v [more.v ...] [options] [+plusargs]
+#
+#   Options:
+#     --compile       compile only (iverilog), no simulation
+#     --sim           simulate only: run the last compile again (vvp), no compile
+#     --lint          lint only (verilator --lint-only -Wall), no simulation
+#     --top NAME      top module (default: chosen by Icarus = the module nobody instantiates)
+#     -DNAME[=VAL]    define a macro          -I DIR   include folder
+#     +anything       passed to the simulation
+#
+#   Waveforms: put $dumpfile("dump.vcd"); $dumpvars; in your testbench, then: surfer dump.vcd
+#   Output: <first file name>.out (compiled), <first file name>.log
+set -o pipefail
+[ $# -eq 0 ] && { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+
+LINT=0; COMPILE=1; SIM=1; TOP=""; FILES=(); IOPTS=(); LOPTS=(); PLUS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --lint) LINT=1 ;;
+    --compile) SIM=0 ;;
+    --sim) COMPILE=0 ;;
+    --top) TOP="$2"; shift ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -D*) IOPTS+=("$1"); LOPTS+=("$1") ;;
+    -I) IOPTS+=(-I "$2"); LOPTS+=("+incdir+$(cygpath -m "$2")"); shift ;;
+    +*) PLUS+=("$1") ;;
+    -*) echo "vrun: unknown option $1 (see: vrun --help)"; exit 2 ;;
+    *) [ -f "$1" ] || { echo "vrun: file not found: $1"; exit 2; }; FILES+=("$1") ;;
+  esac
+  shift
+done
+[ ${#FILES[@]} -eq 0 ] && { echo "vrun: give at least one .v file"; exit 2; }
+NAME=$(basename "${FILES[0]}"); NAME=${NAME%.*}
+
+if [ $LINT = 1 ]; then
+  SRC=(); for f in "${FILES[@]}"; do SRC+=("$(cygpath -m "$f")"); done
+  T=(); [ -n "$TOP" ] && T=(--top-module "$TOP")
+  echo "== vrun --lint: verilator --lint-only -Wall ${FILES[*]}"
+  if verilator --lint-only -Wall --timing "${T[@]}" "${LOPTS[@]}" "${SRC[@]}"; then
+    echo "LINT PASSED: no warnings or errors"; exit 0
+  else
+    echo "LINT FAILED: fix the %Warning/%Error lines above (file:line:column)"; exit 1
+  fi
+fi
+
+T=(); [ -n "$TOP" ] && T=(-s "$TOP")
+if [ $COMPILE = 1 ]; then
+  echo "== vrun: compiling ${FILES[*]} -> $NAME.out"
+  iverilog -g2012 "${T[@]}" "${IOPTS[@]}" -o "$NAME.out" "${FILES[@]}" || { echo "COMPILE FAILED (see errors above)"; exit 1; }
+  echo "COMPILE PASSED: $NAME.out"
+  [ $SIM = 0 ] && { echo "Next: vrun ${FILES[*]} --sim   (simulate without compiling again)"; exit 0; }
+else
+  [ -f "$NAME.out" ] || { echo "Not compiled yet: run  vrun ${FILES[*]} --compile  first"; exit 1; }
+fi
+echo "== vrun: simulating (log: $NAME.log)"
+echo "----------------------------------------------------------------------"
+vvp -n "$NAME.out" "${PLUS[@]}" 2>&1 | tee "$NAME.log"
+RC=$?
+echo "----------------------------------------------------------------------"
+if ! grep -q '[^[:space:]]' "$NAME.log"; then
+  echo "NOTHING WAS PRINTED: ${FILES[*]} has no testbench code that prints (no initial block with \$display)."
+  echo "  A design file alone does nothing by itself. Choose your testbench file,"
+  echo "  or list design + testbench together:  vrun counter.v counter_tb.v"
+fi
+if grep -qiE '^error|fatal|FAIL' "$NAME.log" || [ $RC -ne 0 ]; then echo "RESULT: check the messages above (exit $RC)"; exit 1; fi
+echo "RESULT: run finished (exit 0)"

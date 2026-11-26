@@ -73,12 +73,110 @@ run `make sim` in the terminal, and then open the coverage report from the launc
      cover properties), **Line-by-line (HTML)**, **Uncovered lines**.
 5. Other buttons:
    - **Stop** ends a running step completely.
-   - **Clear output** empties the window (like `clear`).
-   - **Clean project** runs `make clean`: it deletes only generated files, and your `rtl/`, `tb/` and `sva/`
-     files are kept.
+   - The **Single file** tab and the **Project** tab each have their own result tabs (Console, Log, Report,
+     Coverage, Schematic, FSM, Waveform). A project run never shows up on the Single file side, and the
+     other way round.
+   - **Clear (all result tabs)** empties every result tab of the side you are on, waveform included
+     (like `clear`). No files are deleted.
+   - **Clean project (make clean)** (Project tab) runs `make clean` and then clears the Project result tabs.
+     It deletes only generated files, and your `rtl/`, `tb/` and `sva/` files are kept.
+   - **Clean file outputs** (Single file tab) lists the files `vrun`/`svrun`/`uvmrun` made for the chosen
+     file (build folder, `.log`, `.out`, coverage files, its `.vcd`), asks you, deletes them and clears the
+     Single file result tabs. Your source file is never touched.
+   - **Dark console / Light console** switches the Console, Log and Report text between a dark terminal look
+     and white. The choice is remembered for next time.
    - **Terminal here** opens the terminal in the project's run folder.
 6. The bottom line always shows the real command, for example `Command used: make regress`.
    Type the same command in the terminal and you get the same result.
+7. **Results open in tabs below the buttons**, inside the same window:
+
+   | Tab | Shows |
+   |---|---|
+   | **Console** | live output of the running step |
+   | **Log** | the simulation log of the last run (fills in automatically after Simulate) |
+   | **Report** | lint report, synthesis statistics, full flow report |
+   | **Coverage** | code coverage (overall, per module, per instance) and functional coverage (covergroup → coverpoint → bin, cover properties), coloured green / amber / red |
+   | **Schematic** / **FSM** | RTL or gate schematic and the FSM diagram as pictures, with zoom |
+   | **Waveform** | built-in VCD viewer: pick signals on the left, **Zoom in/out/Fit**, scroll, click in the waves for a cursor with values. **Open in Surfer** for FST files, big files or more features |
+
+   Waveform tips: double-click a signal name to add it. Click a name, then **Remove**. Ctrl + mouse wheel zooms;
+   Shift + mouse wheel scrolls in time.
+
+## 3. Single files: quick tests like `vcs file.sv -R` or `qrun file.sv`
+
+For small exercises (a class with constraints, an SVA example, a single-file UVM test), you don't need a project or
+a Makefile. Put the file in a folder without spaces and run it directly.
+
+**In the OSS Flow window (Single file tab):**
+1. **New file...**: choose the folder (Browse), type the file name, and choose the type: **Verilog (.v)**,
+   **SystemVerilog (.sv)** or **UVM (.sv)**. Keep "Start with a small working example" ticked, so you start from code
+   that already prints something. The file opens in **gvim**.
+   Or use **Choose file...** to pick an existing file.
+2. Write your code in gvim and save it (**Ctrl+S**).
+3. Click **Compile**, then **Simulate**. Your `$display` output appears in the **Console** tab, and the **Log** tab
+   keeps a copy.
+4. Click **Waveform** or **Coverage** to see those results in their tabs.
+
+The **Type** box next to the file name decides the command. The window sets it automatically, and you can change it:
+
+| Type | Command | Chosen automatically when |
+|---|---|---|
+| Verilog | **vrun** (Icarus Verilog) | the file ends in `.v` |
+| SystemVerilog | **svrun** (Verilator) | a `.sv` file without UVM |
+| UVM | **uvmrun** (Verilator + UVM library) | the file uses `uvm_pkg`, `uvm_macros.svh` or `extends uvm_...` |
+
+If the Console shows `NOTHING WAS PRINTED`, the chosen file has no code that prints. A design file alone, like a
+counter, does nothing by itself: choose the testbench file.
+
+`uvmrun` is the same as `svrun --uvm`. `svrun` also finds UVM by itself, so both commands work for UVM files.
+
+| You want | Terminal | OSS Flow window | Like |
+|---|---|---|---|
+| **Compile** only | `svrun my_file.sv --compile` / `vrun my_file.v --compile` | **Compile** | `vcs -sverilog my_file.sv` |
+| **Simulate** only (the last compile, no compile) | `svrun my_file.sv --sim` / `vrun my_file.v --sim` | **Simulate** | `./simv` |
+| Both | `svrun my_file.sv` / `vrun my_file.v` | **Compile + Simulate** | `vcs -R` / `qrun` |
+| Lint (-Wall) | `svrun my_file.sv --lint` / `vrun my_file.v --lint` | **Lint** | |
+| Edit the file | `gvim my_file.sv` | **Edit** | |
+| Several files | `uvmrun my_if.sv my_pkg.sv top.sv --compile` (compile order: interfaces, packages, top) | terminal only | |
+| UVM test name, seed and so on | `uvmrun tb.sv --sim +UVM_TESTNAME=my_test +UVM_VERBOSITY=UVM_HIGH` | type it in **Arguments**, then **Simulate** | `./simv +UVM_TESTNAME=...` |
+| Waveform | compile with `--waves` (your code needs `$dumpfile`/`$dumpvars`), then `surfer dump.vcd` | `--waves` in **Arguments**, then **Open waveform...** | |
+| Coverage | compile and simulate with `--cov` (prints code + functional coverage) | `--cov` in **Arguments** | |
+
+**Typical UVM loop:** **Compile** once (several minutes), then **Simulate** as often as you like with different
+`+UVM_TESTNAME`, seeds or verbosity (seconds each). After you change a file, **Compile** again.
+
+- **The top module is found automatically**: it's the module that nothing else instantiates. If there are several,
+  choose one with `--top NAME`.
+- **UVM is detected automatically.** If the file uses `uvm_pkg`, `uvm_macros` or `extends uvm_...`, the UVM library
+  is added. The first UVM build takes a few minutes; later runs of the same files reuse it.
+- **Output:** the run is printed and saved in `<file name>.log`. The build folder is `svrun_<file name>/`.
+- `svrun` and `vrun` print `RESULT: FAIL` when the run reports `%Error`, a failed assertion, `UVM_ERROR` or
+  `UVM_FATAL`.
+
+Example (a constraint exercise saved as `const_top.sv`):
+```systemverilog
+class test;
+  rand int a;  real b;
+  constraint c1 {a inside {[555:655]};}
+  function void post_randomize; b = a/10.0; endfunction
+endclass
+module const_top;
+  initial begin
+    static test test_h = new();          // 'static' avoids the IMPLICITSTATIC lint warning
+    repeat (10) begin
+      assert(test_h.randomize() == 1);
+      $display("The generated values are : %0p", test_h.b);
+    end
+  end
+endmodule
+```
+```bash
+svrun const_top.sv          # prints 10 values between 55.5 and 65.5
+svrun const_top.sv --lint   # -Wall lint: only "b is not used" remains (lint can't see the read inside $display); harmless
+```
+
+> Don't put such files into an example project's `rtl/` folder. A project's Makefile builds only its own top
+> (`tb_top`), so your file would be compiled but never run.
 
 ---
 
@@ -236,10 +334,12 @@ make lint
 
 Good: `LINT PASSED`.
 
-### B3. Simulate one test, then all tests
+### B3. Compile, simulate one test, then all tests
 
 ```bash
-make run TEST=smoke
+make build                   # Compile only (button: Compile)
+make sim TEST=smoke          # Simulate only, no compile (button: Simulate)
+make run TEST=smoke          # both (button: Compile + Simulate)
 make regress
 ```
 
@@ -319,12 +419,15 @@ make regress
 
 Good: `alu_smoke_test PASS`, `alu_random_test PASS`, `REGRESSION PASSED`.
 
-### C4. One test with options, and waveforms
+### C4. Compile once, then simulate tests with options and waveforms
 
 ```bash
-make run TEST=alu_random_test SEED=7 WAVES=1
+make build                                         # Compile once (several minutes)
+make sim TEST=alu_smoke_test                       # Simulate: seconds, no compile
+make sim TEST=alu_random_test SEED=7 WAVES=1       # another test/seed, still no compile
 make waves TEST=alu_random_test
 ```
+In the OSS Flow window: **Compile**, then choose the test, seed and verbosity, and click **Simulate**.
 
 ### C5. Coverage
 
