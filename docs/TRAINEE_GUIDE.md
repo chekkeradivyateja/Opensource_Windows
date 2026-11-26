@@ -15,8 +15,13 @@ This guide uses one folder of free tools (the "bundle"). It covers the full flow
 
 ## 0. Start the tools
 
+0. Shortcuts: the installer puts **OSS Flow** (blue waveform icon) and **Verification Terminal** (black `>_`
+   icon) on the desktop and in the Start menu. Missing? Double-click `C:\oss_flow_bundle\Make_Shortcuts.cmd`.
+   To keep them on the taskbar: right-click the shortcut → **Show more options** → **Pin to taskbar**.
 1. Open the tools folder (`C:\oss_flow_bundle`, see [INSTALL.md](INSTALL.md)) and **double-click `Verification_Terminal.cmd`**.
-   A terminal window opens with all the tools ready. Nothing is installed or changed on your PC.
+   A terminal window titled **OSS Flow Terminal** opens with all the tools ready. The prompt shows
+   `OSS Flow` and your folder. Nothing is installed or changed on your PC, and you do not need MSYS2:
+   the terminal (bash) and the tools are inside the bundle folder.
 2. In this terminal:
    - `~` is your Windows user folder (`C:\Users\<you>`).
    - `/examples` and `/templates` are folders inside the bundle.
@@ -34,6 +39,9 @@ Create your own work folder once:
 mkdir -p ~/vlsi_work
 cd ~/vlsi_work
 ```
+
+All terminal commands (single files, design, SV, UVM, shell basics) are on one page:
+[TERMINAL_CHEATSHEET.md](TERMINAL_CHEATSHEET.md). Print it and keep it next to the keyboard.
 
 ## 1. Editors: gvim and vi
 
@@ -85,7 +93,8 @@ run `make sim` in the terminal, and then open the coverage report from the launc
      Single file result tabs. Your source file is never touched.
    - **Dark console / Light console** switches the Console, Log and Report text between a dark terminal look
      and white. The choice is remembered for next time.
-   - **Terminal here** opens the terminal in the project's run folder.
+   - **Terminal here** opens the OSS Flow terminal in the project's run folder (Project tab) or in the
+     chosen file's folder (Single file tab).
 6. The bottom line always shows the real command, for example `Command used: make regress`.
    Type the same command in the terminal and you get the same result.
 7. **Results open in tabs below the buttons**, inside the same window:

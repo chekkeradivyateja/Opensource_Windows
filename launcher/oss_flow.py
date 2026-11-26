@@ -516,13 +516,31 @@ def coverage_tree(text):
     return rows
 
 
+DOT_DPI = 80     # Graphviz picture resolution; gui() raises it on high-DPI screens
+
+
+def make_dpi_aware():
+    """Tell Windows this program draws itself at the real screen resolution. Without this, Windows draws
+    the window at 100 % and stretches the picture (125 %, 150 %, ... display scaling), which looks blurry."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)        # system DPI aware (Windows 8.1 and later)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()          # older Windows
+        except Exception:
+            pass
+
+
 def render_dot_png(dot_path):
     """Draw a Graphviz .dot file as PNG next to it (for the Schematic / FSM tabs). Returns the PNG path."""
     dot_path = Path(dot_path)
     png = dot_path.with_suffix(".png")
     if not png.exists() or png.stat().st_mtime < dot_path.stat().st_mtime:
         exe = BUNDLE / "opt" / "graphviz" / "bin" / "dot.exe"
-        r = subprocess.run([str(exe), "-Tpng", "-Gdpi=80", str(dot_path), "-o", str(png)], env=ENV,
+        r = subprocess.run([str(exe), "-Tpng", "-Gdpi={}".format(DOT_DPI), str(dot_path), "-o", str(png)], env=ENV,
                            creationflags=NO_WINDOW, capture_output=True, text=True)
         if r.returncode != 0 or not png.exists():
             raise RuntimeError("Graphviz could not draw {}: {}".format(dot_path.name, r.stderr.strip()[:300]))
@@ -534,10 +552,23 @@ def gui():
     import tkinter as tk
     from tkinter import filedialog, messagebox, ttk
 
+    make_dpi_aware()
     root = tk.Tk()
     root.title("OSS Flow: design and verification")
-    root.geometry("1150x820")
-    if root.winfo_screenheight() < 900 or root.winfo_screenwidth() < 1200:
+    try:      # window + taskbar icon, also used by every dialog of this program
+        root.iconbitmap(default=str(Path(__file__).resolve().parent / "oss_flow.ico"))
+    except tk.TclError:
+        pass
+    # Screen scaling: 1.0 at 100 %, 1.5 at 150 % ... Fonts follow by themselves; pixel sizes use px().
+    UI = max(1.0, root.winfo_fpixels("1i") / 96.0)
+
+    def px(n):
+        return int(round(n * UI))
+    global DOT_DPI
+    DOT_DPI = px(80)
+    ttk.Style(root).configure("Treeview", rowheight=px(22))
+    root.geometry("{}x{}".format(px(1150), px(820)))
+    if root.winfo_screenheight() < px(900) or root.winfo_screenwidth() < px(1200):
         root.state("zoomed")      # small screens: use the whole screen for the result tabs
     state = {"project": None, "flow": None, "run": None, "proc": None, "lines": []}
     q = queue.Queue()
@@ -608,6 +639,9 @@ def gui():
                       ("Simulate", lambda: single_run("sim")), ("Lint", lambda: single_run("lint")),
                       ("Waveform", lambda: single_waveform()), ("Coverage", lambda: single_coverage())):
         ttk.Button(srow2, text=text, width=12, command=cmd).pack(side="left", padx=(0, 6))
+    ttk.Button(srow2, text="Terminal here", width=14,
+               command=lambda: terminal_here(Path(state["single"]).parent if state.get("single") else None)
+               ).pack(side="left", padx=(12, 0))
     srow3 = ttk.Frame(single)
     srow3.pack(fill="x", pady=(10, 0))
     ttk.Label(srow3, text="Arguments").pack(side="left")
@@ -713,10 +747,10 @@ def gui():
         cov_tree.heading("pct", text="Coverage")
         cov_tree.heading("bar", text="")
         cov_tree.heading("hit", text="Hit / total")
-        cov_tree.column("#0", width=420)
+        cov_tree.column("#0", width=px(420))
         cov_tree.column("pct", width=90, anchor="e")
-        cov_tree.column("bar", width=130)
-        cov_tree.column("hit", width=110, anchor="e")
+        cov_tree.column("bar", width=px(130))
+        cov_tree.column("hit", width=px(110), anchor="e")
         cov_tree.tag_configure("good", foreground="#1a7f37")
         cov_tree.tag_configure("mid", foreground="#b26a00")
         cov_tree.tag_configure("low", foreground="#c62828")
@@ -840,7 +874,7 @@ def gui():
         wv_cur = tk.StringVar(value="")
         wv = {"data": None, "shown": [], "t0": 0.0, "scale": 1.0, "cursor": None, "path": None, "sel": None,
               "unit_ps": 1.0}
-        NAME_W, VAL_W, ROW_H, TOP_H = 210, 90, 26, 26
+        NAME_W, VAL_W, ROW_H, TOP_H = px(210), px(90), px(26), px(26)
         for text, cmd in (("Open VCD...", lambda: wv_open()), ("Zoom in", lambda: wv_zoom(2.0)),
                           ("Zoom out", lambda: wv_zoom(0.5)), ("Fit", lambda: wv_fit()),
                           ("Open in Surfer", lambda: wv["path"] and subprocess.Popen(
@@ -850,7 +884,7 @@ def gui():
         ttk.Label(wbar, textvariable=wv_file).pack(side="left", padx=4)
         wpane = ttk.PanedWindow(wv_f, orient="horizontal")
         wpane.pack(fill="both", expand=True)
-        wleft = ttk.Frame(wpane, width=240)
+        wleft = ttk.Frame(wpane, width=px(240))
         wright = ttk.Frame(wpane)
         wpane.add(wleft, weight=0)
         wpane.add(wright, weight=1)
@@ -1013,7 +1047,7 @@ def gui():
             c.create_text(NAME_W + 4, 4, anchor="nw", text="Value @ cursor", font=("Segoe UI", 8, "bold"))
             for i, s in enumerate(wv["shown"]):
                 y = TOP_H + i * ROW_H
-                yh, yl = y + 5, y + ROW_H - 5
+                yh, yl = y + px(5), y + ROW_H - px(5)
                 ym = (yh + yl) / 2
                 if wv["sel"] == i:
                     c.create_rectangle(0, y, NAME_W, y + ROW_H, fill="#dbeafe", outline="")
@@ -1404,8 +1438,10 @@ def gui():
             return
         P.wv_load(f)
 
-    def terminal_here():
-        where = state["run"] or Path(ENV["HOME"])
+    def terminal_here(where=None):
+        """Opens the OSS Flow terminal (Verification_Terminal.cmd) in the given folder,
+        else in the project's run folder, else in the home folder."""
+        where = where or state["run"] or Path(ENV["HOME"])
         subprocess.Popen([str(TERMINAL_CMD)], cwd=str(where), creationflags=NEW_CONSOLE)
 
     def choose_single():
@@ -1676,6 +1712,9 @@ def gui():
         set_project(sys.argv[1])
     if os.environ.get("OSSFLOW_GUI_SMOKE"):
         # maintainer check: build the window, open a project and both tabs, then close
+        root.update()
+        print("  Screen scaling: {:.0f} % (UI {:.2f}) | Tk scaling {:.2f} | window {} | Graphviz dpi {}".format(
+            UI * 100, UI, float(root.tk.call("tk", "scaling")), root.geometry(), DOT_DPI))
         for d in os.environ["OSSFLOW_GUI_SMOKE"].split(";"):
             if d:
                 set_project(d)

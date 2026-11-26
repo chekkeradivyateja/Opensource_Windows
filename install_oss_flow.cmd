@@ -205,10 +205,10 @@ call :say "5. Shortcuts"
 if defined OSSFLOW_NO_SHORTCUTS (
   call :say "  Skipped (test hook)."
 ) else (
-  powershell -NoProfile -NonInteractive -Command "$s=New-Object -ComObject WScript.Shell; $d=[Environment]::GetFolderPath('Desktop'); $m=Join-Path ([Environment]::GetFolderPath('Programs')) 'OSS Flow'; New-Item -ItemType Directory -Force -Path $m | Out-Null; foreach($p in @(@('OSS Flow','OSS_Flow.cmd'),@('Verification Terminal','Verification_Terminal.cmd'))){ foreach($f in @($d,$m)){ $l=$s.CreateShortcut((Join-Path $f ($p[0]+'.lnk'))); $l.TargetPath='%DIR%\'+$p[1]; $l.WorkingDirectory=$env:USERPROFILE; $l.Save() } }" >>"%LOG%" 2>&1
+  call "%DIR%\Make_Shortcuts.cmd" --quiet >>"%LOG%" 2>&1
   if errorlevel 1 (
-    call :say "  WARN  Could not create shortcuts. Make them yourself: right-click"
-    call :say "        %DIR%\OSS_Flow.cmd and choose Send to, Desktop."
+    call :say "  WARN  Could not create shortcuts. Double-click this file to try again:"
+    call :say "        %DIR%\Make_Shortcuts.cmd"
   ) else (
     call :say "  PASS  Desktop and Start menu: 'OSS Flow' and 'Verification Terminal'"
   )

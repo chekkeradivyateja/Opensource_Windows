@@ -5,3 +5,5 @@
 *.cmd -text
 *.bat -text
 *.ps1 -text
+# Icons are binary
+*.ico binary

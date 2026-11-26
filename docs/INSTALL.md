@@ -19,6 +19,7 @@ steps by hand.
    2. downloads the tools (about 420 MB) and **checks the SHA-256**
    3. unpacks them to `C:\oss_flow_bundle`
    4. creates the shortcuts **OSS Flow** and **Verification Terminal** on the desktop and in the Start menu
+      (with icons; right-click → Show more options → Pin to taskbar to pin them)
    5. runs a **self-test**
 
    It ends with `DONE: OSS Flow v0.2.0 is installed and working.`
@@ -83,9 +84,12 @@ Rules for the location:
 
 ### 4. Shortcuts (optional)
 
-In `C:\oss_flow_bundle`, right-click each file and choose **Send to → Desktop (create shortcut)**:
-- `OSS_Flow.cmd`: the OSS Flow window (buttons)
-- `Verification_Terminal.cmd`: the terminal (commands)
+Double-click `C:\oss_flow_bundle\Make_Shortcuts.cmd`. It creates **OSS Flow** (the window with buttons) and
+**Verification Terminal** (commands) on the desktop and in the Start menu, with their icons.
+
+**Pin to the taskbar:** right-click a shortcut → **Show more options** → **Pin to taskbar** (Windows 11), or
+right-click → **Pin to taskbar** (Windows 10). The shortcuts start the real programs, so pinning works; a
+shortcut made with *Send to → Desktop* on a `.cmd` file cannot be pinned.
 
 ## 5. First run check (both ways)
 

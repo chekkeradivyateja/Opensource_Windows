@@ -140,7 +140,8 @@ see [docs/INSTALL.md](docs/INSTALL.md).
 3. **Unzip** it to `C:\` (right-click → *Extract All...* → `C:\`). You get `C:\oss_flow_bundle`.
    Use a short path **without spaces**.
 4. **Start:** double-click `C:\oss_flow_bundle\OSS_Flow.cmd` (window) or `Verification_Terminal.cmd` (terminal).
-   Tip: right-click → *Send to → Desktop (create shortcut)*.
+   Tip: double-click `Make_Shortcuts.cmd` for desktop and Start-menu shortcuts with icons, which you can pin
+   to the taskbar.
 5. **Check it works:** follow "First run" in [docs/INSTALL.md](docs/INSTALL.md#5-first-run-check). It takes 2 minutes.
 
 To uninstall, delete the folder `C:\oss_flow_bundle`. Nothing else is changed on your PC.
@@ -149,7 +150,8 @@ Detailed step-by-step instructions: [docs/INSTALL.md](docs/INSTALL.md).
 ## 3. Use it
 
 The trainee guide is [docs/TRAINEE_GUIDE.md](docs/TRAINEE_GUIDE.md). It covers every step of the design flow, the SV
-flow and UVM, with commands you can copy.
+flow and UVM, with commands you can copy. All terminal commands on one page:
+[docs/TERMINAL_CHEATSHEET.md](docs/TERMINAL_CHEATSHEET.md).
 
 Shortest possible start (terminal):
 ```bash
@@ -193,7 +195,7 @@ Verification_Terminal.cmd  starts the terminal with all tools
 launcher/oss_flow.py       the OSS Flow window (Python, standard library only)
 templates/                 Makefile templates: design/, sv/, uvm/, basic/
 examples/                  design_seq_det (Verilog FSM), counter, sv_project (SVA + coverage), uvm_project
-docs/                      INSTALL, SYSTEM_REQUIREMENTS, TRAINEE_GUIDE, TOOLS, TROUBLESHOOTING,
+docs/                      INSTALL, SYSTEM_REQUIREMENTS, TRAINEE_GUIDE, TERMINAL_CHEATSHEET, TOOLS, TROUBLESHOOTING,
                            TESTED, MAINTAINER_BUILD
 licenses/                  licence information for the shipped tools
 VERSIONS.txt               exact version + checksum of every tool in the release bundle

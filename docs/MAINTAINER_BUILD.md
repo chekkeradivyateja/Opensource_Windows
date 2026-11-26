@@ -53,7 +53,9 @@ Left out when copying (with robocopy `/XD` and `/XF`):
 
 `Verification_Terminal.cmd` sets these for its own window only:
 - `PATH` = `opt\surfer; opt\graphviz\bin; ucrt64\bin; usr\bin; System32`
-- `MSYSTEM=UCRT64`, `CHERE_INVOKING=1`, `MSYS2_PATH_TYPE=inherit`
+- `MSYSTEM=UCRT64`, `CHERE_INVOKING=1`, `MSYS2_PATH_TYPE=inherit` (MSYSTEM must stay: /etc/profile uses it to
+  put `ucrt64in` on PATH)
+- `MSYS2_PS1` = prompt `OSS Flow <folder>` and window title `OSS Flow Terminal` (instead of MSYS2's `UCRT64`)
 - `UVM_HOME=<bundle>/opt/uvm/src`
 - `HOME=%USERPROFILE%`
 
