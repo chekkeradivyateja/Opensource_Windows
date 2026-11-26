@@ -1,6 +1,6 @@
 # How the release bundle is built (for the trainer/maintainer)
 
-Trainees do **not** need this page. It records how `oss_flow_windows_v0.2.0.zip` was made so it can be
+Trainees do **not** need this page. It records how `oss_flow_windows_v0.3.0.zip` was made so it can be
 rebuilt or updated.
 
 ## 1. Build PC

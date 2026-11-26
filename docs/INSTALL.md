@@ -22,7 +22,7 @@ steps by hand.
       (with icons; right-click → Show more options → Pin to taskbar to pin them)
    5. runs a **self-test**
 
-   It ends with `DONE: OSS Flow v0.2.0 is installed and working.`
+   It ends with `DONE: OSS Flow v0.3.0 is installed and working.`
 4. Press a key to close the window, then start **OSS Flow** from the desktop.
 
 **Options.** Open a Command Prompt in the folder that has the installer, then run one of these:
@@ -30,7 +30,7 @@ steps by hand.
 | Command | What it does |
 |---|---|
 | `install_oss_flow.cmd --check` | checks your PC only and changes nothing |
-| `install_oss_flow.cmd --zip D:\oss_flow_windows_v0.2.0.zip` | **offline** install from a ZIP on a USB stick or shared drive |
+| `install_oss_flow.cmd --zip D:\oss_flow_windows_v0.3.0.zip` | **offline** install from a ZIP on a USB stick or shared drive |
 | `install_oss_flow.cmd --dir D:\oss_flow_bundle` | installs to another folder (no spaces) |
 | `install_oss_flow.cmd --uninstall` | removes the shortcuts and moves the tools folder to a backup name |
 
@@ -47,9 +47,9 @@ If the installer reports a FAIL, it says what to do. The full log is in your Tem
 ### 1. Download
 
 1. Go to <https://github.com/chekkeradivyateja/Opensource_Windows/releases>.
-2. Under the newest release (**v0.2.0**), click these two files to download them:
-   - `oss_flow_windows_v0.2.0.zip` (the tools)
-   - `oss_flow_windows_v0.2.0.zip.sha256` (its checksum)
+2. Under the newest release (**v0.3.0**), click these two files to download them:
+   - `oss_flow_windows_v0.3.0.zip` (the tools)
+   - `oss_flow_windows_v0.3.0.zip.sha256` (its checksum)
 
    They go to your **Downloads** folder.
 
@@ -63,16 +63,16 @@ This makes sure the file is complete and unchanged.
    A PowerShell window opens in that folder.
 2. Type this command (or copy it) and press **Enter**:
    ```powershell
-   (Get-FileHash .\oss_flow_windows_v0.2.0.zip -Algorithm SHA256).Hash
+   (Get-FileHash .\oss_flow_windows_v0.3.0.zip -Algorithm SHA256).Hash
    ```
-3. Open `oss_flow_windows_v0.2.0.zip.sha256` with Notepad. The long code in it must be **exactly the same** as
+3. Open `oss_flow_windows_v0.3.0.zip.sha256` with Notepad. The long code in it must be **exactly the same** as
    the output of step 2 (capital or small letters do not matter).
    - **Same:** continue.
    - **Different:** delete the zip and download it again. If it is still different, report it (see README).
 
 ### 3. Unzip
 
-1. Right-click `oss_flow_windows_v0.2.0.zip` and choose **Extract All...**.
+1. Right-click `oss_flow_windows_v0.3.0.zip` and choose **Extract All...**.
 2. As the destination, type `C:\` and click **Extract**. This takes a few minutes (about 30,000 files).
 3. You now have the folder **`C:\oss_flow_bundle`**.
 

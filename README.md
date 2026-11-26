@@ -18,7 +18,7 @@ There are three ways to work, and you can mix them freely:
 | `OSS_Flow.cmd` | the **OSS Flow** window: buttons for every step, PASS in green and FAIL in red, coverage reports in the browser |
 | `gvim` / `vi` | editors with Verilog/SystemVerilog colours |
 
-> **Status: v0.2.0 = pilot release.** It is tested on one Windows 11 PC (see [docs/TESTED.md](docs/TESTED.md)).
+> **Status: v0.3.0 = pilot release.** It is tested on one Windows 11 PC (see [docs/TESTED.md](docs/TESTED.md)).
 > It is not yet tested on other trainee laptops. Please report problems (see [Getting help](#getting-help)).
 
 ---
@@ -130,10 +130,10 @@ see [docs/INSTALL.md](docs/INSTALL.md).
 
 **Manual:**
 1. Open the **[Releases](https://github.com/chekkeradivyateja/Opensource_Windows/releases)** page and download
-   `oss_flow_windows_v0.2.0.zip` and `oss_flow_windows_v0.2.0.zip.sha256`.
+   `oss_flow_windows_v0.3.0.zip` and `oss_flow_windows_v0.3.0.zip.sha256`.
 2. **Check the download.** In PowerShell, in your Downloads folder:
    ```powershell
-   (Get-FileHash .\oss_flow_windows_v0.2.0.zip -Algorithm SHA256).Hash
+   (Get-FileHash .\oss_flow_windows_v0.3.0.zip -Algorithm SHA256).Hash
    ```
    The result must equal the value in the `.sha256` file (upper or lower case does not matter).
    If it is different, delete the zip and download it again.

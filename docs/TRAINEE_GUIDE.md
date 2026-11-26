@@ -1,6 +1,6 @@
 # Open-Source Verilog Design & Verification Flow on Windows: Trainee Guide
 
-Version v0.2.0 (pilot). Every command below was run exactly as written on one Windows 11 PC (Nov 2026).
+Version v0.3.0 (pilot). Every command below was run exactly as written on one Windows 11 PC (Nov 2026).
 Opening windows (Surfer, browser, gvim) was checked by eye. Installation: [INSTALL.md](INSTALL.md).
 
 This guide uses one folder of free tools (the "bundle"). It covers the full flow:

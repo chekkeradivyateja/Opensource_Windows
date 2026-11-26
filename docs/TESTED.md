@@ -21,6 +21,10 @@ Only real results are listed here. Tested on **one PC**:
 | Trainee guide | every command run exactly as written | PASS |
 | Release ZIP v0.1.0 | SHA-256 checked, unzipped into a new folder `C:\oss_ziptest`; INSTALL.md first-run commands (design `make report`, SV `make regress` + `covhtml`) and launcher self-test with UVM (49/49) all from the unzipped copy | PASS |
 | OSS Flow window v0.2.0 | result tabs (Console, Log, Report, Coverage, Schematic, FSM, Waveform); Single file tab: New file, Type, Compile, Simulate for Verilog, SystemVerilog and UVM; Single file and Project results kept apart; Clear, Clean file outputs, make clean; dark/light console; tab heights (no buttons cut off) | PASS (window check script + checked on screen by the trainer) |
+| OSS Flow window v0.3.0 | sharp at 150 % display scaling (DPI aware; window check reports 150 %, all tabs fit); Terminal here on the Single file tab; window icon | PASS (window check script + checked on screen by the trainer) |
+| Shortcuts v0.3.0 | `Make_Shortcuts.cmd`: desktop + Start menu shortcuts start pythonw.exe / cmd.exe with icons; OSS Flow pinned to the taskbar and started from the pin | PASS (checked on screen by the trainer) |
+| Terminal v0.3.0 | title "OSS Flow Terminal", prompt `OSS Flow <folder>`, tools still from the bundle (`MSYSTEM=UCRT64`) | PASS |
+| Release ZIP v0.3.0 | 442,629,579 bytes, SHA-256 `6ab1bc80…529bcd27`; offline install with `install_oss_flow.cmd --zip` into a new folder: SHA-256 PASS, unpack PASS, launcher self-test 53/53 PASS (238 s in all); new files present, no test files | PASS |
 | Release ZIP v0.2.0 | 442,607,824 bytes, SHA-256 `e245caf6…b3eea46`; offline install with `install_oss_flow.cmd --zip` into a new folder: SHA-256 PASS, unpack PASS, launcher self-test 53/53 PASS (174 s in all) | PASS |
 
 ## One-click installer (`install_oss_flow.cmd`)
