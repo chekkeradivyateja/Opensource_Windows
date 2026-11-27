@@ -112,7 +112,7 @@ run `make sim` in the terminal, and then open the coverage report from the launc
    | **Console** | live output of the running step |
    | **Log** | the simulation log of the last run (fills in automatically after Simulate) |
    | **Report** | lint report, synthesis statistics, full flow report |
-   | **Coverage** | code coverage (overall, per module, per instance) and functional coverage (covergroup → coverpoint → bin, cover properties), coloured green / amber / red |
+   | **Coverage** | code coverage (overall, per module, per instance) and functional coverage (covergroup → coverpoint / cross → every bin with its hit count, HIT green / MISSED red; covergroup % = average of its coverpoints, as in VCS/Questa), coloured green / amber / red. **Double-click any row** (line, toggle, branch, expr, a module, a covergroup, a coverpoint, a bin) for a details window: every point with hits, file:line, missed first, "Show missed only"; double-click a point to open that line in gvim |
    | **Schematic** / **FSM** | RTL or gate schematic and the FSM diagram as pictures, with zoom |
    | **Waveform** | built-in VCD viewer: pick signals on the left, **Zoom in/out/Fit**, scroll, click in the waves for a cursor with values. **Open in Surfer** for FST files, big files or more features |
 

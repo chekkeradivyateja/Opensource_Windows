@@ -574,6 +574,54 @@ def coverage_tree(text):
     return rows
 
 
+def parse_cov_dat(path):
+    """Every coverage point of a verilator_coverage .dat file: dicts with type (line, toggle, branch, expr,
+    covergroup, user), file, line, desc, hier, page, bin and count. Verilator's own std package is skipped."""
+    points = []
+    with open(path, errors="replace") as f:
+        for raw in f:
+            if not raw.startswith("C '"):
+                continue
+            body, _, cnt = raw.rstrip("\r\n").rpartition("' ")
+            kv = dict(p.split("\x02", 1) for p in body[3:].split("\x01") if "\x02" in p)
+            fname = kv.get("f", "").replace("\\", "/")
+            if fname.endswith(("verilated_std.sv", "oss_waves.sv")):
+                continue
+            try:
+                count = int(cnt)
+            except ValueError:
+                continue
+            points.append({"type": kv.get("t") or kv.get("page", "?").split("/")[0].replace("v_", ""),
+                           "file": fname, "line": int(kv["l"]) if kv.get("l", "").isdigit() else 0,
+                           "desc": kv.get("o", ""), "hier": kv.get("h", ""), "page": kv.get("page", ""),
+                           "bin": kv.get("B", ""), "count": count})
+    return points
+
+
+def cov_dat_for(report):
+    """The .dat file that belongs to a coverage report (same name, or the usual names in its folder)."""
+    p = Path(report)
+    names = [p.stem + ".dat", "coverage.dat", "design.dat", "merged.dat"]
+    if p.name.endswith("_cov_report.txt"):          # single file: <name>_cov_report.txt -> <name>.coverage.dat
+        names.insert(0, p.name[:-len("_cov_report.txt")] + ".coverage.dat")
+    for n in names:
+        if (p.parent / n).is_file():
+            return p.parent / n
+    return newest_file(p.parent, ["*.dat"])
+
+
+def covergroup_tree(points):
+    """{covergroup: {coverpoint/cross: [(bin, count), ...]}} from the covergroup points of a .dat file."""
+    tree = {}
+    for pt in points:
+        if pt["type"] != "covergroup" or not pt["bin"] or not pt["hier"].endswith("." + pt["bin"]):
+            continue
+        cp_path = pt["hier"][:-len(pt["bin"]) - 1]
+        cg, _, cp = cp_path.rpartition(".")
+        tree.setdefault(cg or cp_path, {}).setdefault(cp, []).append((pt["bin"], pt["count"]))
+    return tree
+
+
 DOT_DPI = 80     # Graphviz picture resolution; gui() raises it on high-DPI screens
 
 
@@ -645,10 +693,18 @@ def gui():
     cov_vars = {k: tk.StringVar(value="-") for k in COV_KINDS}
 
     # pop-ups always belong to the main window, so they open on top of it
+    smoke = bool(os.environ.get("OSSFLOW_GUI_SMOKE"))     # window check: print pop-ups, never wait for a click
+
     def info(msg):
+        if smoke:
+            print("  (pop-up) " + msg.replace("\n", " "))
+            return
         messagebox.showinfo("OSS Flow", msg, parent=root)
 
     def warn(msg):
+        if smoke:
+            print("  (warning pop-up) " + msg.replace("\n", " "))
+            return
         messagebox.showwarning("OSS Flow", msg, parent=root)
 
     def dialog(title):
@@ -830,9 +886,168 @@ def gui():
         ttk.Button(cov_bar, text="Uncovered lines (folder)", command=lambda: cov_state["annot"] and open_default(
             cov_state["annot"])).pack(side="right", padx=2)
 
+        def cov_values(hit, tot):
+            pct = 100.0 * hit / tot if tot else 0.0
+            n = int(round(pct / 10))
+            tag = ("good",) if pct >= 90 else (("mid",) if pct >= 50 else ("low",))
+            return ("{:.1f}%".format(pct), "█" * n + "░" * (10 - n), "{} / {}".format(hit, tot)), tag
+
+        def add_bins(report):
+            """Functional coverage with every bin (from the .dat file next to the report):
+            covergroup -> coverpoint / cross -> bin with its hit count, HIT green / MISSED red."""
+            dat = cov_dat_for(report)
+            try:
+                cov_state["points"] = parse_cov_dat(dat) if dat else []
+            except OSError:
+                cov_state["points"] = []
+            cov_state["datfile"] = dat
+            cgt = covergroup_tree(cov_state["points"])
+            if not cgt:
+                return
+            if not cov_tree.exists("func"):
+                allc = [c for cps in cgt.values() for b in cps.values() for _, c in b]
+                vals, tag = cov_values(sum(c > 0 for c in allc), len(allc))
+                cov_tree.insert("", "end", iid="func", text="Functional coverage (covergroups, coverpoints, bins)",
+                                values=vals, tags=tag, open=True)
+            cov_tree.delete(*cov_tree.get_children("func"))
+            for cg, cps in cgt.items():
+                # SystemVerilog covergroup coverage = average of its coverpoints and crosses (like
+                # get_coverage() and the VCS/Questa reports), not the share of all bins
+                allc = [c for b in cps.values() for _, c in b]
+                cp_pcts = [100.0 * sum(c > 0 for _, c in b) / len(b) for b in cps.values() if b]
+                pct = sum(cp_pcts) / len(cp_pcts) if cp_pcts else 0.0
+                n = int(round(pct / 10))
+                tag = ("good",) if pct >= 90 else (("mid",) if pct >= 50 else ("low",))
+                vals = ("{:.1f}%".format(pct), "█" * n + "░" * (10 - n),
+                        "{} / {} bins".format(sum(c > 0 for c in allc), len(allc)))
+                cg_id = "fcg\x00" + cg
+                cov_tree.insert("func", "end", iid=cg_id, text="covergroup " + cg, values=vals, tags=tag, open=True)
+                for cp, bins in cps.items():
+                    counts = [c for _, c in bins]
+                    vals, tag = cov_values(sum(c > 0 for c in counts), len(counts))
+                    is_cross = all(b.startswith("<") for b, _ in bins)
+                    cp_id = "fcp\x00" + cg + "\x00" + cp
+                    cov_tree.insert(cg_id, "end", iid=cp_id, values=vals, tags=tag, open=len(bins) <= 24,
+                                    text="{} {}  ({} bins, {} missed)".format("cross" if is_cross else "coverpoint", cp,
+                                                                             len(bins), sum(c == 0 for c in counts)))
+                    for b, c in bins:
+                        cov_tree.insert(cp_id, "end", iid="fbin\x00{}\x00{}\x00{}".format(cg, cp, b),
+                                        text="bin " + b, tags=("good",) if c else ("low",),
+                                        values=("HIT" if c else "MISSED", "", "hits {}".format(c)))
+
+        def cov_selection(iid):
+            """(title, points) behind a row of the Coverage tab."""
+            pts = cov_state.get("points") or []
+            parts = iid.split("/")
+            if iid.startswith(("fcg\x00", "fcp\x00")) or iid == "func" or parts[0] == "cg":
+                cg_pts = [p for p in pts if p["type"] == "covergroup"]
+                if iid.startswith("fcp\x00"):
+                    _, cg, cp = iid.split("\x00")
+                    return "{}.{}".format(cg, cp), [p for p in cg_pts if p["hier"].startswith(cg + "." + cp + ".")]
+                if iid.startswith("fcg\x00"):
+                    cg = iid.split("\x00")[1]
+                    return "covergroup " + cg, [p for p in cg_pts if p["hier"].startswith(cg + ".")]
+                return "Functional coverage (all bins)", cg_pts
+            if parts[0] == "asrt":
+                return "cover properties", [p for p in pts if p["type"] == "user"]
+            kinds = CODE_KINDS
+            if parts[0] == "code":
+                k = parts[1] if len(parts) > 1 else None
+                return ("{} coverage".format(k) if k else "Code coverage"), \
+                       [p for p in pts if (p["type"] == k if k else p["type"] in kinds)]
+            if parts[0] in ("mod", "inst") and len(parts) > 1:
+                k = parts[-1] if parts[-1] in kinds else None
+                owner = "/".join(parts[1:-1] if k else parts[1:])
+                if parts[0] == "mod":
+                    match = lambda p: p["page"].split("/", 1)[-1] == owner
+                else:
+                    match = lambda p: p["hier"] == owner
+                return "{} {} {}".format("module" if parts[0] == "mod" else "instance", owner, k or "code coverage"), \
+                       [p for p in pts if match(p) and (p["type"] == k if k else p["type"] in kinds)]
+            return iid, []
+
+        def cov_details(event=None):
+            iid = cov_tree.identify_row(event.y) if event is not None else cov_tree.focus()
+            if not iid:
+                return
+            if iid.startswith("fbin\x00"):          # a bin: show its whole coverpoint / cross
+                iid = "fcp\x00" + "\x00".join(iid.split("\x00")[1:3])
+            if not cov_state.get("points"):
+                info("No coverage data file (.dat) was found next to the report, so the details cannot be shown.")
+                return
+            title, pts = cov_selection(iid)
+            if not pts:
+                info("No coverage points for: {}".format(title))
+                return
+            open_cov_details(title, pts)
+
+        def open_cov_details(title, pts):
+            win = tk.Toplevel(root)
+            win.title("Coverage details: " + title)
+            win.geometry("{}x{}".format(px(1000), px(560)))
+            win.transient(root)
+            hit, tot = sum(p["count"] > 0 for p in pts), len(pts)
+            ttk.Label(win, text="{}:   {} of {} hit ({:.1f} %),   {} missed".format(
+                title, hit, tot, 100.0 * hit / tot, tot - hit)).pack(anchor="w", padx=8, pady=(8, 2))
+            only = tk.BooleanVar(value=False)
+            tv = ttk.Treeview(win, columns=("status", "count", "where", "what", "hier"), show="headings")
+            for col, text, w, anchor in (("status", "Status", 90, "w"), ("count", "Hits", 70, "e"),
+                                         ("where", "File : line", 230, "w"), ("what", "Point", 330, "w"),
+                                         ("hier", "Where in the design", 260, "w")):
+                tv.heading(col, text=text)
+                tv.column(col, width=px(w), anchor=anchor)
+            tv.tag_configure("good", foreground="#1a7f37")
+            tv.tag_configure("low", foreground="#c62828")
+
+            def what(p):
+                if p["bin"] and p["hier"].endswith("." + p["bin"]):
+                    cp = p["hier"][:-len(p["bin"]) - 1].rpartition(".")[2]
+                    return "{} : bin {}".format(cp, p["bin"])
+                return "{} {}".format(p["type"], p["desc"]).strip()
+
+            rows = {}
+
+            def fill():
+                tv.delete(*tv.get_children())
+                rows.clear()
+                for p in sorted(pts, key=lambda p: (p["count"] > 0, p["file"], p["line"])):
+                    if only.get() and p["count"]:
+                        continue
+                    iid = tv.insert("", "end", tags=("good",) if p["count"] else ("low",), values=(
+                        "hit" if p["count"] else "MISSED", p["count"],
+                        "{}:{}".format(Path(p["file"]).name, p["line"]), what(p), p["hier"]))
+                    rows[iid] = p
+
+            def open_src(event):
+                p = rows.get(tv.identify_row(event.y))
+                if not p or not cov_state.get("dir"):
+                    return
+                src = Path(os.path.normpath(str(Path(cov_state["dir"]) / p["file"])))
+                if src.exists():
+                    subprocess.Popen([str(GVIM), "+{}".format(p["line"]), str(src)], cwd=str(src.parent), env=ENV)
+                else:
+                    info("Source file not found: {}".format(src))
+
+            ttk.Checkbutton(win, text="Show missed only", variable=only, command=fill).pack(anchor="w", padx=8)
+            ttk.Label(win, text="Missed points are listed first. Double-click a row to open the source line in gvim.",
+                      foreground="#555555").pack(anchor="w", padx=8)
+            ys = ttk.Scrollbar(win, orient="vertical", command=tv.yview)
+            tv.configure(yscrollcommand=ys.set)
+            ys.pack(side="right", fill="y", pady=4)
+            tv.pack(fill="both", expand=True, padx=(8, 0), pady=4)
+            tv.bind("<Double-1>", open_src)
+            fill()
+            cov_state["last_details"] = (win, tv)
+
+        cov_tree.bind("<Double-1>", cov_details)
+        ttk.Label(cov_bar, text="Double-click a row for details (every bin / line / toggle, hit or missed)",
+                  foreground="#555555").pack(side="left", padx=12)
+
         def show_coverage(path, select=True):
             path = Path(path)
             if not path.exists():
+                cov_tree.delete(*cov_tree.get_children())       # never show the previous project's numbers
+                cov_state.update(points=[], datfile=None)
                 cov_src.set("{} not found. Run tests (and Coverage) first.".format(path.name))
                 if select:
                     outtabs.select(cov_f)
@@ -847,6 +1062,7 @@ def gui():
                     tags = ("good",) if pct >= 90 else (("mid",) if pct >= 50 else ("low",))
                 cov_tree.insert(parent, "end", iid=iid, text=label, values=vals, tags=tags,
                                 open=parent in ("", "code", "func"))
+            add_bins(path)
             cov_state["dir"] = path.parent
             annot = [d for d in (path.parent / "cov_annot", path.parent / (path.name.replace("_cov_report.txt", "") + "_cov_annot"),
                                  path.parent / (path.stem + "_annot"))
@@ -1181,7 +1397,7 @@ def gui():
                 v["var"].set("Nothing loaded yet. It fills in after a run.")
             cov_tree.delete(*cov_tree.get_children())
             cov_src.set("No coverage yet.")
-            cov_state.update(dir=None, annot=None)
+            cov_state.update(dir=None, annot=None, points=[], datfile=None)
             for view in (sch_view, fsm_view):
                 view["canvas"].delete("all")
                 view.update(full=None, img=None, dot=None)
@@ -1196,6 +1412,7 @@ def gui():
         from types import SimpleNamespace
         return SimpleNamespace(nb=outtabs, con_f=con_f, out=out, viewers=viewers, show_text=show_text,
                                show_coverage=show_coverage, cov_tree=cov_tree, cov_src=cov_src,
+                               cov_state=cov_state, cov_selection=cov_selection, open_cov_details=open_cov_details,
                                show_image=show_image, sch_view=sch_view, fsm_view=fsm_view, wv=wv,
                                wv_load=wv_load, wv_file=wv_file, wv_draw=wv_draw, wv_zoom=wv_zoom,
                                wv_hscroll=wv_hscroll, wv_time=wv_time, wcanvas=wcanvas, clear_all=clear_all,
@@ -1864,6 +2081,38 @@ def gui():
         root.update()
         print("  Screen scaling: {:.0f} % (UI {:.2f}) | Tk scaling {:.2f} | window {} | Graphviz dpi {}".format(
             UI * 100, UI, float(root.tk.call("tk", "scaling")), root.geometry(), DOT_DPI))
+        def cov_check(tag):
+            t, cs = P.cov_tree, P.cov_state
+            print("  {} coverage data: {} | points: {}".format(
+                tag, cs.get("datfile") and Path(cs["datfile"]).name, len(cs.get("points") or [])))
+            for cg in (t.get_children("func") if t.exists("func") else ()):
+                print("    {} {}".format(t.item(cg, "text"), list(t.item(cg, "values"))))
+                for cp in t.get_children(cg):
+                    bins = t.get_children(cp)
+                    print("      {} -> {} | first bins: {}".format(t.item(cp, "text"), t.item(cp, "values")[0],
+                          [(t.item(b, "text"), t.item(b, "values")[0], t.item(b, "values")[2]) for b in bins][:3]))
+            probes = ["code/line", "code/toggle", "func"]
+            mods = t.get_children("mod") if t.exists("mod") else ()
+            if mods and t.get_children(mods[0]):
+                probes.append(t.get_children(mods[0])[0])
+            cgs = t.get_children("func") if t.exists("func") else ()
+            if cgs:
+                probes.append(cgs[0])
+                if t.get_children(cgs[0]):
+                    probes.append(t.get_children(cgs[0])[-1])
+            for iid in probes:
+                title, pts = P.cov_selection(iid)
+                if not pts:
+                    print("    details '{}': no points".format(title))
+                    continue
+                P.open_cov_details(title, pts)
+                root.update()
+                win, tv = cs["last_details"]
+                rows = tv.get_children()
+                print("    details '{}': {} rows, {} missed, first row {}".format(
+                    title, len(rows), sum(p["count"] == 0 for p in pts), list(tv.item(rows[0], "values"))[:4]))
+                win.destroy()
+
         for d in os.environ["OSSFLOW_GUI_SMOKE"].split(";"):
             if d:
                 set_project(d)
@@ -1891,6 +2140,8 @@ def gui():
                 elif state["flow"] in ("sv", "uvm"):
                     P.show_coverage(rd / "cov_report.txt")
                     root.update()
+                    if (rd / "cov_report.txt").exists():
+                        cov_check("Template project:")
                     print("  Coverage tab:", P.cov_src.get(), "| rows:", len(P.cov_tree.get_children()),
                           "top-level, e.g.", [P.cov_tree.item(i, "text") + " " + str(P.cov_tree.item(i, "values")[0])
                                               for i in P.cov_tree.get_children()][:4])
@@ -1927,6 +2178,7 @@ def gui():
                               "| Coverage tab:", P.cov_src.get().split("   (")[0], "| coverage rows:", len(P.cov_tree.get_children()))
                         waveform()
                         print("    Waveform:", P.wv_file.get())
+                        cov_check("After Run test:")
                 if P.wv["data"]:
                     root.update()
                     n0 = len(P.wcanvas.find_all())
