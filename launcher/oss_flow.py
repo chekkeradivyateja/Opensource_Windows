@@ -33,7 +33,12 @@ EXAMPLE_INFO = {
     "uvm_project": "UVM verification: UVM tests, coverage, waves, synth",
 }
 FLOW_NAMES = {"design": "Design flow (Verilog)", "sv": "SystemVerilog verification",
-              "uvm": "UVM verification", "basic": "Basic SystemVerilog (TC1, TC2 tests)"}
+              "uvm": "UVM verification", "basic": "Basic SystemVerilog (TC1, TC2 tests)",
+              "make": "Your Makefile (tests and regressions read from it)"}
+# targets of a Makefile line "name:" (not "name := value"); simulator-specific variants are hidden
+TARGET_RE = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_-]*)\s*:(?!=)", re.M)
+SIM_SUFFIX_RE = re.compile(r"_(VCS|Questa|QUESTA|questa|vcs|VERILATOR|Verilator|verilator|IUS|Xcelium|XCELIUM)$")
+TEST_TARGET_RE = re.compile(r"(?i)^(tc|test|testcase)_?\d+$")
 
 
 def tool_env():
@@ -60,19 +65,72 @@ def shq(text):
 
 
 def detect(project):
-    """Return (flow, run_dir) for a project folder: design, sv, uvm or basic."""
+    """Return (flow, run_dir) for a project folder: design, sv, uvm, basic or make.
+    The folder may also be the run folder itself (the one that holds the Makefile, e.g. sim/).
+    'make' = any other Makefile (for example a lab Makefile with TC1, regress_12, ...): its own
+    targets are used."""
     p = Path(project)
     if (p / "simdir" / "Makefile").exists():
         return "design", p / "simdir"
-    mk = p / "sim" / "Makefile"
-    if mk.exists():
-        text = mk.read_text(errors="replace")
-        if "UVM_HOME" in text:
-            return "uvm", p / "sim"
-        if re.search(r"^TC%:", text, re.M):
-            return "basic", p / "sim"
-        return "sv", p / "sim"
-    return None, None
+    if p.name == "simdir" and (p / "Makefile").exists():
+        return "design", p
+    run_dir = p / "sim" if (p / "sim" / "Makefile").exists() else (p if (p / "Makefile").exists() else None)
+    if run_dir is None:
+        return None, None
+    text = (run_dir / "Makefile").read_text(errors="replace")
+    if re.search(r"^TC%:", text, re.M):
+        return "basic", run_dir
+    if not re.search(r"^run\s*:", text, re.M):
+        return "make", run_dir
+    if "UVM_HOME" in text:
+        return "uvm", run_dir
+    return "sv", run_dir
+
+
+def make_targets(run_dir):
+    """User-facing targets of a Makefile in file order: no .PHONY/.SUFFIXES, no file names
+    (with a dot), no simulator-specific variants like TC1_VCS or TC1_VERILATOR."""
+    names = []
+    for name in TARGET_RE.findall(makefile_text(run_dir)):
+        if SIM_SUFFIX_RE.search(name) or name in names:
+            continue
+        names.append(name)
+    return names
+
+
+def make_simulator(run_dir):
+    """(extra make argument, Makefile default) for Makefiles with a SIMULATOR switch.
+    If the Makefile has *_VERILATOR targets, every call gets SIMULATOR=VERILATOR."""
+    text = makefile_text(run_dir)
+    m = re.search(r"^SIMULATOR\s*[:?]?=\s*(\S+)", text, re.M)
+    if not m:
+        return "", ""
+    if re.search(r"^\w+_VERILATOR\s*:", text, re.M):
+        return "SIMULATOR=VERILATOR", m.group(1)
+    return "", m.group(1)
+
+
+def make_seed_arg(run_dir, test, seed):
+    """SEEDn=<seed> for test TCn if the Makefile has SEEDn, else SEED=<seed> if it has SEED, else ''."""
+    seed = seed.strip()
+    if not seed:
+        return ""
+    text = makefile_text(run_dir)
+    n = re.search(r"(\d+)$", test or "")
+    if n and re.search(r"^SEED{}\s*[:?]?=".format(n.group(1)), text, re.M):
+        return "SEED{}={}".format(n.group(1), seed)
+    if re.search(r"^SEED\s*[:?]?=", text, re.M):
+        return "SEED={}".format(seed)
+    return ""
+
+
+def newest_file(folder, patterns, must_contain=None):
+    """The most recently changed file in folder matching one of the glob patterns
+    (optionally containing a text in its first 4000 characters)."""
+    files = [f for pat in patterns for f in Path(folder).glob(pat) if f.is_file()]
+    if must_contain:
+        files = [f for f in files if must_contain in f.read_text(errors="replace")[:4000]]
+    return max(files, key=lambda f: f.stat().st_mtime) if files else None
 
 
 def makefile_text(run_dir):
@@ -580,6 +638,8 @@ def gui():
     verb_var = tk.StringVar(value="UVM_MEDIUM")
     waves_var = tk.BooleanVar(value=False)
     fmt_var = tk.StringVar(value="vcd")
+    reg_var = tk.StringVar()        # 'Your Makefile' projects: regression target
+    target_var = tk.StringVar()     # 'Your Makefile' projects: any other target
     cmd_var = tk.StringVar(value="Command used: -")
     status_var = tk.StringVar(value="Ready")
     cov_vars = {k: tk.StringVar(value="-") for k in COV_KINDS}
@@ -788,7 +848,8 @@ def gui():
                 cov_tree.insert(parent, "end", iid=iid, text=label, values=vals, tags=tags,
                                 open=parent in ("", "code", "func"))
             cov_state["dir"] = path.parent
-            annot = [d for d in (path.parent / "cov_annot", path.parent / (path.name.replace("_cov_report.txt", "") + "_cov_annot"))
+            annot = [d for d in (path.parent / "cov_annot", path.parent / (path.name.replace("_cov_report.txt", "") + "_cov_annot"),
+                                 path.parent / (path.stem + "_annot"))
                      if d.exists()]
             cov_state["annot"] = annot[0] if annot else None
             cov_src.set("{}   ({})".format(path.name, path.parent))
@@ -1302,7 +1363,11 @@ def gui():
                 f = state["run"] / n
                 if f.exists():
                     f.unlink()
-            run("clean", done=lambda rc: P.clear_all(), panel=P)
+            run(("clean " + sim_arg()).strip(), done=lambda rc: P.clear_all(), panel=P)
+
+    def sim_arg():
+        """SIMULATOR=VERILATOR for 'Your Makefile' projects whose Makefile switches simulators."""
+        return make_simulator(state["run"])[0] if state["flow"] == "make" else ""
 
     def single_outputs(f):
         """Files and folders that svrun / vrun / uvmrun created for this file (never the source itself)."""
@@ -1363,8 +1428,11 @@ def gui():
         if not need_project():
             return
         ext = [("Verilog / SystemVerilog", "*.v *.sv *.svh"), ("All files", "*.*")]
+        # lab projects use other folder names (test/, env/, env_lib/): take the first that exists
+        names = {"rtl": ["rtl"], "tb": ["tb", "test", "env", "env_lib", "testbench"]}.get(sub, [sub])
+        start = next((state["project"] / n for n in names if (state["project"] / n).is_dir()), state["project"])
         f = filedialog.askopenfilename(parent=root, title="Open a file in gvim",
-                                       initialdir=str(state["project"] / sub), filetypes=ext)
+                                       initialdir=str(start), filetypes=ext)
         if f:
             open_with(GVIM, f)
 
@@ -1385,7 +1453,8 @@ def gui():
         rule = {"design": "Design flow: use .v for design and testbench files.",
                 "sv": "SV flow: design files .v or .sv; testbench files .sv.",
                 "uvm": "UVM flow: design files .v or .sv; testbench files .sv.",
-                "basic": "Basic flow: design files .v or .sv; testbench files .sv."}[state["flow"]]
+                "basic": "Basic flow: design files .v or .sv; testbench files .sv.",
+                "make": "Your Makefile: add the new file to the Makefile's file list too."}[state["flow"]]
         ttk.Label(fr, text=rule, foreground="#555555").grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
         err = ttk.Label(fr, text="", foreground="#c62828")
         err.grid(row=5, column=0, columnspan=2, sticky="w")
@@ -1416,6 +1485,8 @@ def gui():
             return run_dir / "sim_report.txt"
         if flow == "basic":
             return run_dir / "{}.log".format(t)
+        if flow == "make":          # the newest log the Makefile wrote (test1.log, vcs.log, ...)
+            return newest_file(run_dir, ["*.log"]) or run_dir / "(no .log file yet: run a test first)"
         return run_dir / "logs" / "{}.log".format(t)
 
     def open_log():
@@ -1430,6 +1501,9 @@ def gui():
             f, hint = state["run"] / "dump.vcd", "Click Simulate first."
         elif flow == "basic":
             f, hint = state["run"] / "waves.vcd", "Tick 'Save waveform' and click Run test first."
+        elif flow == "make":        # the newest waveform the Makefile wrote
+            f = newest_file(state["run"], ["*.vcd", "*.fst"]) or state["run"] / "(no .vcd or .fst file)"
+            hint = "Run a test first (the Makefile decides the waveform file)."
         else:
             f = state["run"] / "waves_{}.{}".format(test_var.get(), fmt_var.get())
             hint = "Tick 'Save waveform', then Compile and Simulate."
@@ -1592,13 +1666,16 @@ def gui():
         button(write_row, "Edit testbench", lambda: edit("tb"))
         if flow == "design":
             button(write_row, "Lint", lambda: run("lint", done=lambda rc: P.show_text("report", rd / "lint_report.txt", select=False)))
-        else:
-            button(write_row, "Lint", lambda: run("lint"))
+        elif flow != "make" or has_target(rd, "lint"):
+            button(write_row, "Lint", lambda: run(("lint " + sim_arg()).strip()))
         if flow == "uvm":
             button(write_row, "Lint testbench", lambda: run("lint_tb"))
         opts_row.pack(fill="x")
         btn_row.pack(fill="x", pady=4)
         res_btn_row.pack(fill="x", pady=4)
+        if flow == "make":
+            build_make_rows(rd)
+            return
         if flow == "design":
             def sch(which):
                 P.sch_view["which"].set("RTL schematic" if which == "rtl" else "Gate schematic")
@@ -1614,8 +1691,7 @@ def gui():
             ttk.Label(res_btn_row, text="(results open in the tabs below)", foreground="#555555").pack(side="left", padx=8)
             return
         tests = tests_from(rd)
-        if tests:
-            test_var.set(tests[0])
+        test_var.set(tests[0] if tests else "")       # never keep the previous project's test name
         ttk.Label(opts_row, text="Test").pack(side="left")
         ttk.Combobox(opts_row, textvariable=test_var, values=tests, width=22).pack(side="left", padx=4)
         if flow != "basic":
@@ -1626,9 +1702,6 @@ def gui():
             ttk.Combobox(opts_row, textvariable=verb_var, width=12,
                          values=["UVM_LOW", "UVM_MEDIUM", "UVM_HIGH"]).pack(side="left", padx=4)
         ttk.Checkbutton(opts_row, text="Save waveform", variable=waves_var).pack(side="left", padx=8)
-        if flow != "basic":
-            ttk.Radiobutton(opts_row, text="VCD", variable=fmt_var, value="vcd").pack(side="left")
-            ttk.Radiobutton(opts_row, text="FST", variable=fmt_var, value="fst").pack(side="left")
         show_log = lambda rc: P.show_text("log", log_path(), select=False)
         if flow != "basic":
             ttk.Radiobutton(opts_row, text="VCD", variable=fmt_var, value="vcd").pack(side="left")
@@ -1655,11 +1728,87 @@ def gui():
         hint += "; first UVM compile: several minutes, about 3.5 GB RAM)" if flow == "uvm" else ")"
         ttk.Label(res_btn_row, text=hint, foreground="#555555").pack(side="left", padx=8)
 
+    # ---- 'Your Makefile' projects: tests, regressions and other targets are read from the Makefile
+    def build_make_rows(rd):
+        targets = make_targets(rd)
+        simarg, simdef = make_simulator(rd)
+        tests = [t for t in targets if TEST_TARGET_RE.match(t)]
+        regs = [t for t in targets if t.lower().startswith("regress")]
+        others = [t for t in targets if t not in tests and t not in regs]
+        test_var.set(tests[0] if tests else "")
+        reg_var.set(regs[-1] if regs else "")
+        target_var.set(next((t for t in others if t.lower().startswith("report")), others[0] if others else ""))
+        seed_var.set("")
+
+        def mk(*parts):
+            return " ".join(p for p in parts + (simarg,) if p)
+
+        def cov_report():
+            return newest_file(rd, ["*.txt"], must_contain="Coverage Summary")
+
+        def show_results(rc, log=True):
+            if log:
+                P.show_text("log", log_path(), select=False)
+            cov = cov_report()
+            if cov:
+                P.show_coverage(cov, select=False)
+
+        def run_test():
+            t = test_var.get().strip()
+            if not t:
+                info("No test target (TC1, TC2, ...) was found in the Makefile.")
+                return
+            run(mk(t, make_seed_arg(rd, t, seed_var.get())), done=show_results)
+
+        def run_regression():
+            t = reg_var.get().strip()
+            if not t:
+                info("No regression target (regress...) was found in the Makefile.")
+                return
+            run(mk(t), done=show_results)
+
+        def run_target():
+            t = target_var.get().strip()
+            if t:
+                run(mk(t), done=lambda rc: show_results(rc, log=False))
+
+        def coverage():
+            cov = cov_report()
+            if cov:
+                P.show_coverage(cov)
+            else:
+                info("No coverage report yet in\n{}\nRun a test or a regression first.".format(rd))
+
+        ttk.Label(opts_row, text="Test").pack(side="left")
+        ttk.Combobox(opts_row, textvariable=test_var, values=tests, width=14).pack(side="left", padx=4)
+        ttk.Label(opts_row, text="Seed").pack(side="left")
+        ttk.Entry(opts_row, textvariable=seed_var, width=11).pack(side="left", padx=4)
+        ttk.Label(opts_row, text="(empty: the Makefile's seed)", foreground="#555555").pack(side="left", padx=(0, 10))
+        button(opts_row, "Run test", run_test)
+        ttk.Label(btn_row, text="Regression").pack(side="left")
+        ttk.Combobox(btn_row, textvariable=reg_var, values=regs, width=14).pack(side="left", padx=4)
+        button(btn_row, "Run regression", run_regression)
+        ttk.Label(btn_row, text="Other target").pack(side="left", padx=(12, 0))
+        ttk.Combobox(btn_row, textvariable=target_var, values=others, width=14).pack(side="left", padx=4)
+        button(btn_row, "Run target", run_target)
+        button(btn_row, "Waveform", waveform)
+        button(res_btn_row, "Coverage", coverage)
+        button(res_btn_row, "Open log", open_log)
+        if simarg:
+            note = "Every make command gets {} (the Makefile's own default is {}).".format(simarg, simdef)
+        elif simdef:
+            note = "Note: this Makefile has no VERILATOR part; SIMULATOR={} needs tools that are not installed.".format(simdef)
+        else:
+            note = "Targets found in the Makefile: {}".format(len(targets))
+        ttk.Label(res_btn_row, text=note, foreground="#555555").pack(side="left", padx=8)
+
     def set_project(path):
         flow, run_dir = detect(path)
         if not flow:
-            warn("No simdir/Makefile or sim/Makefile found in\n{}".format(path))
+            warn("No Makefile found in\n{}\n(looked in sim/, simdir/ and the folder itself)".format(path))
             return
+        # a chosen sim/ or simdir/ folder: the project is the folder above it
+        path = run_dir.parent if Path(run_dir) == Path(path) else Path(path)
         state.update(project=Path(path), flow=flow, run=run_dir)
         proj_var.set(str(path))
         flow_var.set("Flow: {}   |   run folder: {}".format(FLOW_NAMES[flow], run_dir))
@@ -1670,7 +1819,7 @@ def gui():
         fit_top()          # the project's buttons were just added: give the Project tab its full height
 
     def browse():
-        d = filedialog.askdirectory(parent=root, title="Choose a project folder (it contains rtl/, tb/ and sim/ or simdir/)")
+        d = filedialog.askdirectory(parent=root, title="Choose the project folder, or its sim/ folder (the one with the Makefile)")
         if d:
             set_project(d)
 
@@ -1751,6 +1900,33 @@ def gui():
                     print("  Log tab:", P.viewers["log"]["var"].get())
                     fmt_var.set("vcd")
                     waveform()
+                elif state["flow"] == "make":
+                    combos = [w for w in list(opts_row.winfo_children()) + list(btn_row.winfo_children())
+                              if isinstance(w, ttk.Combobox)]
+                    print("  Makefile dropdowns: test {} | regression {} | other {}".format(
+                        *[list(c.cget("values")) for c in combos]))
+                    print("  Preselected: test '{}' | regression '{}' | other '{}' | seed '{}'".format(
+                        test_var.get(), reg_var.get(), target_var.get(), seed_var.get()))
+                    print("  Note:", [w.cget("text") for w in res_btn_row.winfo_children() if isinstance(w, ttk.Label)])
+                    if os.environ.get("OSSFLOW_GUI_SMOKE_MAKE_RUN"):
+                        import time
+                        if not state.get("pump_started"):
+                            state["pump_started"] = True
+                            root.after(100, pump)
+                        seed_var.set("77")
+                        run_btn = [w for w in opts_row.winfo_children() if hasattr(w, "invoke") and w.cget("text") == "Run test"][0]
+                        n_exit = P.out.get("1.0", "end").count("== exit")
+                        run_btn.invoke()
+                        t_end = time.time() + 900
+                        while P.out.get("1.0", "end").count("== exit") == n_exit and time.time() < t_end:
+                            root.update()
+                            time.sleep(0.05)
+                        root.update()
+                        print("  Run test pressed ->", cmd_var.get().split("   (in")[0], "|", status_var.get())
+                        print("    Log tab:", P.viewers["log"]["var"].get().split("   (")[0],
+                              "| Coverage tab:", P.cov_src.get().split("   (")[0], "| coverage rows:", len(P.cov_tree.get_children()))
+                        waveform()
+                        print("    Waveform:", P.wv_file.get())
                 if P.wv["data"]:
                     root.update()
                     n0 = len(P.wcanvas.find_all())
@@ -1777,7 +1953,9 @@ def gui():
         sdir = os.environ.get("OSSFLOW_GUI_SMOKE_SINGLE")
         if sdir:
             import time
-            root.after(100, pump)
+            if not state.get("pump_started"):
+                state["pump_started"] = True
+                root.after(100, pump)
 
             def press(mode):
                 n_exit = S.out.get("1.0", "end").count("== exit")

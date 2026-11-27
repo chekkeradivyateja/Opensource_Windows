@@ -75,6 +75,14 @@ run `make sim` in the terminal, and then open the coverage report from the launc
    - Design: **Simulate**, **Waveform**, **Lint**, **Synthesize**, **Schematic**, **Gate schematic**,
      **FSM diagram**, **Full report**.
    - SV/UVM: **Run test** (Test, Seed, Save waveform), **Regression**, **Waveform**, **Synthesize**.
+   - **Your own Makefile** (for example a lab Makefile with `TC1`, `TC2`, `regress_12`, `report_12`):
+     **Browse** to the project folder or straight to its `sim/` folder. The launcher reads the targets from
+     the Makefile: **Test** lists `TC1`, `TC2`, ... (**Run test**; **Seed** is optional and is passed as
+     `SEED1=`, `SEED2=`, ... if the Makefile has those), **Regression** lists `regress_...` (**Run regression**),
+     **Other target** lists the rest (`report_12`, `sv_cmp`, `covtxt`, `clean`, ...; **Run target**).
+     Targets for one simulator (`TC1_VCS`, `TC1_Questa`, ...) are hidden. If the Makefile has a `SIMULATOR`
+     switch and a VERILATOR part, every command gets `SIMULATOR=VERILATOR`. **Open log**, **Coverage** and
+     **Waveform** show the newest `.log`, coverage report and `.vcd`/`.fst` in the run folder.
 4. Results:
    - **Open log**.
    - SV/UVM: **Coverage**, **Code coverage report**, **Functional coverage report** (covergroups, bins,
